@@ -50,18 +50,89 @@
 .lq-host-bar { margin-top: 1.5rem; font-size: 0.875rem; color: var(--text-muted); background: var(--bg-card); padding: 8px 18px; border-radius: 50px; }
 
 /* ── Leaderboard ───────────────────────────────────────────────── */
-.lq-leaderboard { width: 100%; max-width: 500px; }
+.lq-leaderboard { width: 100%; max-width: 540px; }
 .lb-title { text-align: center; font-size: 1.5rem; margin-bottom: 1.5rem; }
-.lb-list { display: flex; flex-direction: column; gap: 8px; }
-.lb-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); animation: slideUp 0.3s ease forwards; opacity: 0; }
-.lb-rank { font-weight: 700; font-size: 1rem; min-width: 32px; text-align: center; }
+.lb-list { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; scroll-behavior: smooth; padding: 4px; }
+
+/* ── Row base ─────────────────────────────────────────────────── */
+.lb-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md);
+  animation: slideUp 0.3s ease forwards; opacity: 0; position: relative;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+/* ── Current player's row — "pops" out ────────────────────────── */
+.lb-row-me {
+  background: linear-gradient(135deg, rgba(124,92,252,0.12), rgba(124,92,252,0.04));
+  border: 2px solid var(--purple);
+  box-shadow: 0 0 20px rgba(124,92,252,0.2), 0 4px 16px rgba(0,0,0,0.3);
+  transform: scale(1.02);
+  z-index: 2;
+}
+.lb-row-me::before {
+  content: ''; position: absolute; inset: -2px; border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(124,92,252,0.3), rgba(167,139,250,0.1), rgba(124,92,252,0.3));
+  z-index: -1; filter: blur(8px); opacity: 0.6;
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+/* ── Rank badge (pill) ────────────────────────────────────────── */
+.lb-rank-badge {
+  min-width: 38px; height: 28px; border-radius: 50px; display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 0.813rem; flex-shrink: 0;
+  background: rgba(124,92,252,0.1); color: var(--rank-color, var(--purple));
+  border: 1px solid rgba(124,92,252,0.15);
+  transition: transform 0.3s ease;
+}
+.lb-rank-top3 {
+  font-size: 1.125rem; min-width: 42px; height: 32px;
+  background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(245,158,11,0.02));
+  border-color: rgba(245,158,11,0.15);
+  animation: badgeBounce 0.5s ease;
+}
+
+/* ── Rank change arrows ───────────────────────────────────────── */
+.lb-rank-arrow {
+  font-weight: 800; font-size: 1rem; flex-shrink: 0; animation: arrowFade 1.5s ease forwards;
+}
+.lb-arrow-up { color: var(--green); animation: arrowUp 1.5s ease forwards; }
+.lb-arrow-down { color: var(--red); animation: arrowDown 1.5s ease forwards; }
+
+/* ── Avatar, name, score ──────────────────────────────────────── */
 .lb-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.813rem; color: white; flex-shrink: 0; }
 .lb-name { flex: 1; font-weight: 600; font-size: 0.938rem; }
+.lb-name-me { font-weight: 800; font-size: 1rem; color: var(--purple-light); }
 .lb-score { font-family: var(--font-heading); font-weight: 700; color: var(--purple-light); }
-
-.lb-personal { text-align: center; margin-top: 1rem; padding: 10px; background: var(--purple-glow); border-radius: var(--radius-md); font-size: 0.875rem; color: var(--purple-light); font-weight: 500; }
+.lb-score-me { font-size: 1.125rem; color: white; text-shadow: 0 0 12px rgba(124,92,252,0.4); }
 
 .lq-host-actions { text-align: center; margin-top: 1.5rem; display: flex; flex-direction: column; align-items: center; }
+
+/* ── Leaderboard animations ───────────────────────────────────── */
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+@keyframes badgeBounce {
+  0% { transform: scale(0.6); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+@keyframes arrowUp {
+  0% { opacity: 1; transform: translateY(0); }
+  60% { opacity: 1; transform: translateY(-6px); }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+@keyframes arrowDown {
+  0% { opacity: 1; transform: translateY(0); }
+  60% { opacity: 1; transform: translateY(6px); }
+  100% { opacity: 0; transform: translateY(10px); }
+}
+@keyframes arrowFade {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
 
 /* ── Waiting screen ────────────────────────────────────────────── */
 .lq-waiting-screen {

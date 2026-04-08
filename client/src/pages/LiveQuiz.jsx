@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
@@ -44,6 +44,7 @@ export default function LiveQuiz() {
   const [totalScore, setTotalScore] = useState(0);
   const [countdownNum, setCountdownNum] = useState(3);
   const [stats, setStats] = useState(null);
+  const [rankDelta, setRankDelta] = useState(0); // +1 = moved up, -1 = moved down
 
   const timerRef = useRef(null);
   const questionEndTimeRef = useRef(null);
@@ -51,8 +52,28 @@ export default function LiveQuiz() {
   const joinedRef = useRef(false);
   const phaseRef = useRef(phase);
   const qIndexRef = useRef(qIndex);
+  const prevRankRef = useRef(null);
+  const myRowRef = useRef(null);
+  const rankArrowTimerRef = useRef(null);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { qIndexRef.current = qIndex; }, [qIndex]);
+
+  // Track rank changes & auto-scroll
+  useEffect(() => {
+    if (!personalResult?.rank) return;
+    const currentRank = personalResult.rank;
+    if (prevRankRef.current !== null && prevRankRef.current !== currentRank) {
+      const delta = prevRankRef.current - currentRank; // positive = moved up
+      setRankDelta(delta > 0 ? 1 : -1);
+      if (rankArrowTimerRef.current) clearTimeout(rankArrowTimerRef.current);
+      rankArrowTimerRef.current = setTimeout(() => setRankDelta(0), 1500);
+    }
+    prevRankRef.current = currentRank;
+    // Auto-scroll player's row into view
+    setTimeout(() => {
+      myRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  }, [personalResult?.rank]);
 
   const startTimer = useCallback((durationSec, endTimeMs) => {
     if (timerRef.current) cancelAnimationFrame(timerRef.current);
@@ -426,22 +447,42 @@ export default function LiveQuiz() {
           <div className="lq-leaderboard animate-slide-up">
             <h2 className="lb-title">Leaderboard</h2>
             <div className="lb-list">
-              {leaderboard.map((p, i) => (
-                <div key={i} className="lb-row" style={{ animationDelay: `${i * 0.08}s` }}>
-                  <span className="lb-rank" style={{color: i === 0 ? 'var(--amber)' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : 'var(--text-muted)'}}>
-                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
-                  </span>
-                  <div className="lb-avatar" style={{background: p.avatarColor || 'var(--purple)'}}>
-                    {p.displayName?.charAt(0)?.toUpperCase() || '?'}
+              {leaderboard.map((p, i) => {
+                const isMe = !isHost && personalResult && (i + 1) === personalResult.rank;
+                const rankEmoji = i === 0 ? '🏆' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
+                return (
+                  <div
+                    key={i}
+                    ref={isMe ? myRowRef : null}
+                    className={`lb-row ${isMe ? 'lb-row-me' : ''}`}
+                    style={{ animationDelay: `${i * 0.08}s` }}
+                  >
+                    {/* Rank badge */}
+                    <div className={`lb-rank-badge ${i < 3 ? 'lb-rank-top3' : ''}`} style={{
+                      '--rank-color': i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#cd7f32' : 'var(--purple)'
+                    }}>
+                      {rankEmoji || `#${i + 1}`}
+                    </div>
+
+                    {/* Rank change arrow (only for the current player) */}
+                    {isMe && rankDelta !== 0 && (
+                      <span className={`lb-rank-arrow ${rankDelta > 0 ? 'lb-arrow-up' : 'lb-arrow-down'}`}>
+                        {rankDelta > 0 ? '↑' : '↓'}
+                      </span>
+                    )}
+
+                    <div className="lb-avatar" style={{ background: p.avatarColor || 'var(--purple)' }}>
+                      {p.displayName?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                    <span className={`lb-name ${isMe ? 'lb-name-me' : ''}`}>
+                      {p.displayName}{isMe && ' (You)'}
+                    </span>
+                    <span className={`lb-score ${isMe ? 'lb-score-me' : ''}`}>{p.score}</span>
                   </div>
-                  <span className="lb-name">{p.displayName}</span>
-                  <span className="lb-score">{p.score}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
-            {!isHost && personalResult && (
-              <div className="lb-personal">You're #{personalResult.rank} of {personalResult.totalPlayers} • {personalResult.totalScore} points</div>
-            )}
+
             {isHost && (
               <div className="lq-host-actions">
                 <button className="btn btn-primary btn-lg" onClick={nextQuestion}>Next Question →</button>
