@@ -1,0 +1,45 @@
+.auth-page {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem;
+  background: radial-gradient(ellipse at 50% 0%, rgba(124,92,252,0.06) 0%, transparent 60%);
+}
+.auth-card {
+  width: 100%; max-width: 420px; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-xl); padding: 2.5rem; box-shadow: var(--shadow-lg);
+}
+.auth-card-wide { max-width: 520px; }
+.auth-header { text-align: center; margin-bottom: 2rem; }
+.auth-logo {
+  font-family: var(--font-heading); font-weight: 800; font-size: 1.25rem;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  color: var(--text-primary); margin-bottom: 1.5rem;
+}
+.auth-header h1 { font-size: 1.5rem; margin-bottom: 0.375rem; }
+.auth-header p { font-size: 0.875rem; color: var(--text-secondary); }
+.auth-form { display: flex; flex-direction: column; gap: 1rem; }
+.auth-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.auth-error {
+  padding: 10px 14px; border-radius: var(--radius-md); background: rgba(248,113,113,0.1);
+  border: 1px solid rgba(248,113,113,0.2); color: var(--red); font-size: 0.813rem;
+}
+.auth-footer { text-align: center; margin-top: 1.5rem; font-size: 0.875rem; color: var(--text-secondary); }
+.auth-footer a { color: var(--purple-light); font-weight: 500; }
+
+.role-toggle {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  padding: 4px; background: var(--bg-secondary); border-radius: var(--radius-md);
+  margin-bottom: 1.5rem;
+}
+.role-btn {
+  padding: 10px; border: none; border-radius: var(--radius-sm); cursor: pointer;
+  font-size: 0.875rem; font-weight: 600; color: var(--text-muted);
+  background: transparent; transition: all var(--transition);
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.role-btn:hover { color: var(--text-secondary); }
+.role-active { background: var(--bg-elevated); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+.role-emoji { font-size: 1rem; }
+
+@media (max-width: 480px) {
+  .auth-card { padding: 1.5rem; }
+  .auth-form-grid { grid-template-columns: 1fr; }
+}

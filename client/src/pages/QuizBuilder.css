@@ -1,0 +1,42 @@
+.builder-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+.builder-title-input { background: none; border: none; color: var(--text-primary); font-family: var(--font-heading); font-size: 1.875rem; font-weight: 700; outline: none; width: 100%; padding: 0; border-bottom: 2px solid transparent; transition: border var(--transition); }
+.builder-title-input:focus { border-bottom-color: var(--purple); }
+.builder-meta { display: flex; gap: 12px; align-items: center; margin-top: 0.5rem; }
+.builder-meta-text { font-size: 0.813rem; color: var(--text-muted); }
+.builder-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.builder-settings { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
+.setting-item { display: flex; align-items: center; justify-content: space-between; font-size: 0.875rem; color: var(--text-secondary); }
+.setting-input { width: 70px; padding: 6px 10px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); text-align: center; font-size: 0.875rem; }
+
+.questions-list { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem; }
+.question-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; }
+.q-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 1rem; }
+.q-number { background: var(--purple-glow); color: var(--purple); font-weight: 700; font-size: 0.813rem; padding: 4px 10px; border-radius: var(--radius-sm); flex-shrink: 0; }
+.q-text { flex: 1; font-size: 0.938rem; line-height: 1.5; }
+.q-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.q-action-btn { background: none; border: none; cursor: pointer; font-size: 0.875rem; padding: 4px; border-radius: 4px; }
+.q-action-btn:hover { background: var(--bg-hover); }
+.q-options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.q-option { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--bg-secondary); font-size: 0.813rem; border: 1px solid transparent; }
+.q-option-correct { border-color: var(--green-dark); background: rgba(52,211,153,0.08); }
+.q-option-letter { font-weight: 700; color: var(--text-muted); font-size: 0.75rem; }
+.q-correct-badge { margin-left: auto; color: var(--green); font-weight: 700; }
+
+.add-q-btn { width: 100%; padding: 1rem; background: var(--bg-card); border: 2px dashed var(--border); border-radius: var(--radius-lg); color: var(--text-muted); font-size: 0.938rem; cursor: pointer; transition: all var(--transition); }
+.add-q-btn:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-glow); }
+
+.q-form { background: var(--bg-card); border: 1px solid var(--purple); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+.q-form h3 { font-size: 1.125rem; }
+.q-form-options { display: flex; flex-direction: column; gap: 8px; }
+.q-form-option { display: flex; align-items: center; gap: 10px; }
+.q-form-radio { display: flex; align-items: center; cursor: pointer; }
+.q-form-radio input { display: none; }
+.q-form-letter { width: 30px; height: 30px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: white; opacity: 0.6; transition: opacity var(--transition); }
+.q-form-radio input:checked + .q-form-letter { opacity: 1; box-shadow: 0 0 12px rgba(255,255,255,0.2); }
+.q-form-input { flex: 1; padding: 8px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.875rem; outline: none; }
+.q-form-input:focus { border-color: var(--purple); }
+
+.q-points-badge { font-size: 0.75rem; font-weight: 600; color: var(--purple-light); background: var(--purple-glow); padding: 3px 10px; border-radius: 50px; flex-shrink: 0; margin-left: auto; }
+
+@media (max-width: 640px) { .q-options-grid { grid-template-columns: 1fr; } }

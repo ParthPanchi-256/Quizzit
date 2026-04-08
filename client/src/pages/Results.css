@@ -1,0 +1,31 @@
+.results-page { min-height: 100vh; display: flex; justify-content: center; padding: 2rem; background: radial-gradient(ellipse at 50% 10%, rgba(251,191,36,0.04) 0%, transparent 60%); }
+.results-content { width: 100%; max-width: 650px; text-align: center; }
+.results-title { font-size: 2.25rem; margin-bottom: 2.5rem; }
+
+.podium-section { margin-bottom: 3rem; }
+.podium { display: flex; justify-content: center; align-items: flex-end; gap: 12px; padding: 0 1rem; }
+.podium-place { display: flex; flex-direction: column; align-items: center; width: 140px; }
+.podium-player { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 12px; opacity: 0; }
+.podium-avatar { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.25rem; color: white; border: 3px solid; }
+.podium-name { font-weight: 700; font-size: 0.875rem; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.podium-score { font-size: 0.75rem; color: var(--text-muted); }
+.podium-bar { height: var(--podium-height); width: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 12px; border: 1px solid; border-bottom: none; animation: slideUp 0.5s ease forwards; }
+.podium-medal { font-size: 1.75rem; }
+
+.results-leaderboard { text-align: left; margin-bottom: 2rem; }
+.results-leaderboard h3 { font-size: 1.125rem; margin-bottom: 1rem; text-align: center; color: var(--text-secondary); }
+.results-lb-list { display: flex; flex-direction: column; gap: 6px; max-height: 400px; overflow-y: auto; }
+.results-lb-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); animation: fadeIn 0.3s ease forwards; opacity: 0; }
+.results-lb-rank { font-weight: 700; font-size: 0.875rem; color: var(--text-muted); min-width: 28px; text-align: center; }
+.results-lb-avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.813rem; color: white; flex-shrink: 0; }
+.results-lb-info { flex: 1; min-width: 0; }
+.results-lb-name { font-weight: 600; font-size: 0.875rem; display: block; }
+.results-lb-stats { font-size: 0.688rem; color: var(--text-muted); }
+.results-lb-score { font-family: var(--font-heading); font-weight: 700; font-size: 0.938rem; color: var(--purple-light); }
+
+.results-actions { margin-top: 2rem; }
+
+@media (max-width: 480px) {
+  .podium-place { width: 100px; }
+  .podium-avatar { width: 40px; height: 40px; font-size: 1rem; }
+}

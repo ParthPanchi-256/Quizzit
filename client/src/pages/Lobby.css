@@ -1,0 +1,28 @@
+.lobby-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; background: radial-gradient(ellipse at 50% 30%, rgba(124,92,252,0.05) 0%, transparent 70%); }
+.lobby-content { text-align: center; width: 100%; max-width: 700px; }
+.lobby-header h1 { font-size: 2rem; margin-bottom: 1.5rem; }
+.lobby-room-info { display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem; }
+.lobby-code-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 2rem; display: flex; flex-direction: column; gap: 4px; }
+.lobby-code-label { font-size: 0.688rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
+.lobby-code-value { font-family: var(--font-heading); font-size: 2rem; font-weight: 800; letter-spacing: 0.1em; color: var(--purple-light); }
+
+.lobby-player-count { margin-bottom: 2rem; }
+.player-count-num { font-family: var(--font-heading); font-size: 3rem; font-weight: 800; color: var(--text-primary); }
+.player-count-label { display: block; font-size: 0.875rem; color: var(--text-muted); }
+
+.lobby-players-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 2.5rem; max-height: 300px; overflow-y: auto; padding: 0.5rem; }
+.lobby-player { display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 50px; animation: scaleIn 0.3s ease forwards; }
+.lobby-player-avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; color: white; }
+.lobby-player-name { font-size: 0.813rem; font-weight: 500; }
+
+.lobby-host-controls { animation: slideUp 0.3s ease; }
+.lobby-waiting { color: var(--text-muted); }
+.lobby-waiting p { margin-top: 1rem; font-size: 0.938rem; }
+.waiting-dots { display: flex; gap: 6px; justify-content: center; }
+.waiting-dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--purple); animation: pulse 1.4s ease infinite; }
+.waiting-dots span:nth-child(2) { animation-delay: 0.2s; }
+.waiting-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+.countdown-overlay { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.countdown-number { font-family: var(--font-heading); font-size: 8rem; font-weight: 800; color: var(--purple); animation: countPulse 1s ease; }
+.countdown-text { font-size: 1.5rem; color: var(--text-secondary); font-weight: 600; }

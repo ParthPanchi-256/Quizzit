@@ -1,0 +1,129 @@
+.live-quiz-page { min-height: 100vh; background: var(--bg-primary); display: flex; flex-direction: column; }
+
+/* ── Timer bar ─────────────────────────────────────────────────── */
+.timer-bar-container { height: 5px; background: var(--bg-secondary); width: 100%; position: fixed; top: 0; z-index: 100; }
+.timer-bar { height: 100%; border-radius: 0 3px 3px 0; will-change: width; transition: width 0.05s linear, background 0.3s ease; }
+
+/* ── Header ────────────────────────────────────────────────────── */
+.lq-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); margin-top: 5px; }
+.lq-progress { font-size: 0.875rem; font-weight: 600; color: var(--text-secondary); background: var(--bg-card); padding: 4px 14px; border-radius: 50px; }
+.lq-timer { font-family: var(--font-heading); font-size: 1.5rem; font-weight: 800; color: var(--text-primary); transition: color 0.3s ease; }
+.lq-timer-danger { color: var(--red) !important; animation: timerPulse 0.5s ease infinite; }
+.lq-score { font-size: 0.875rem; font-weight: 600; color: var(--purple-light); }
+
+/* ── Content area ──────────────────────────────────────────────── */
+.lq-content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1.5rem; max-width: 800px; margin: 0 auto; width: 100%; }
+
+/* ── Question ──────────────────────────────────────────────────── */
+.lq-question { text-align: center; margin-bottom: 2.5rem; }
+.lq-question h2 { font-size: 1.75rem; font-weight: 700; line-height: 1.3; }
+
+/* ── Options grid ──────────────────────────────────────────────── */
+.lq-options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+.lq-option {
+  display: flex; align-items: center; gap: 14px; padding: 18px 20px;
+  background: var(--bg-card); border: 2px solid var(--border); border-radius: var(--radius-lg);
+  cursor: pointer; transition: all 0.2s ease; text-align: left; color: var(--text-primary); font-size: 1rem;
+  position: relative; overflow: hidden;
+}
+.lq-option::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--opt-color); }
+.lq-option:hover:not(:disabled) { border-color: var(--opt-color); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.lq-option:disabled { cursor: default; }
+.lq-option-letter { width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--opt-color); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.938rem; flex-shrink: 0; }
+.lq-option-text { flex: 1; font-weight: 500; }
+.lq-option-selected { border-color: var(--opt-color); background: var(--bg-elevated); box-shadow: 0 0 20px rgba(0,0,0,0.3); }
+.lq-option-dimmed { opacity: 0.4; }
+.lq-option-correct { border-color: var(--green) !important; background: rgba(52,211,153,0.1) !important; opacity: 1 !important; }
+.lq-option-correct::after { content: '✓'; position: absolute; right: 16px; color: var(--green); font-weight: 700; font-size: 1.25rem; }
+.lq-option-wrong { border-color: var(--red) !important; background: rgba(248,113,113,0.1) !important; }
+.lq-option-wrong::after { content: '✕'; position: absolute; right: 16px; color: var(--red); font-weight: 700; font-size: 1.25rem; }
+
+/* ── Feedback ──────────────────────────────────────────────────── */
+.lq-feedback { display: flex; align-items: center; gap: 10px; margin-top: 1.5rem; padding: 12px 24px; border-radius: var(--radius-lg); font-weight: 600; }
+.feedback-correct { background: rgba(52,211,153,0.15); color: var(--green); }
+.feedback-wrong { background: rgba(248,113,113,0.15); color: var(--red); }
+.feedback-icon { font-size: 1.25rem; }
+.streak-badge { background: rgba(245,158,11,0.2); color: var(--amber); padding: 2px 10px; border-radius: 50px; font-size: 0.813rem; }
+
+/* ── Host bar ──────────────────────────────────────────────────── */
+.lq-host-bar { margin-top: 1.5rem; font-size: 0.875rem; color: var(--text-muted); background: var(--bg-card); padding: 8px 18px; border-radius: 50px; }
+
+/* ── Leaderboard ───────────────────────────────────────────────── */
+.lq-leaderboard { width: 100%; max-width: 500px; }
+.lb-title { text-align: center; font-size: 1.5rem; margin-bottom: 1.5rem; }
+.lb-list { display: flex; flex-direction: column; gap: 8px; }
+.lb-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); animation: slideUp 0.3s ease forwards; opacity: 0; }
+.lb-rank { font-weight: 700; font-size: 1rem; min-width: 32px; text-align: center; }
+.lb-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.813rem; color: white; flex-shrink: 0; }
+.lb-name { flex: 1; font-weight: 600; font-size: 0.938rem; }
+.lb-score { font-family: var(--font-heading); font-weight: 700; color: var(--purple-light); }
+
+.lb-personal { text-align: center; margin-top: 1rem; padding: 10px; background: var(--purple-glow); border-radius: var(--radius-md); font-size: 0.875rem; color: var(--purple-light); font-weight: 500; }
+
+.lq-host-actions { text-align: center; margin-top: 1.5rem; display: flex; flex-direction: column; align-items: center; }
+
+/* ── Waiting screen ────────────────────────────────────────────── */
+.lq-waiting-screen {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.25rem;
+  min-height: 100vh;
+}
+.lq-waiting-screen h2 { font-size: 1.5rem; color: var(--text-primary); }
+.lq-waiting-screen p { color: var(--text-muted); font-size: 0.938rem; }
+.lq-waiting-spinner {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 4px solid var(--border); border-top-color: var(--purple);
+  animation: spin 0.8s linear infinite;
+}
+
+/* ── Countdown screen ──────────────────────────────────────────── */
+.lq-countdown-screen {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; gap: 1rem;
+}
+.lq-countdown-number {
+  font-family: var(--font-heading); font-size: 8rem; font-weight: 800;
+  color: var(--purple-light); line-height: 1;
+  animation: countPulse 0.6s ease;
+  text-shadow: 0 0 40px var(--purple-glow), 0 0 80px rgba(124,92,252,0.1);
+}
+.lq-countdown-go {
+  font-family: var(--font-heading); font-size: 5rem; font-weight: 800;
+  color: var(--green); line-height: 1;
+  animation: bounceIn 0.4s ease;
+  text-shadow: 0 0 40px rgba(52,211,153,0.3);
+}
+.lq-countdown-text { font-size: 1.25rem; color: var(--text-secondary); font-weight: 500; }
+
+/* ── Animations ────────────────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes timerPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
+@media (max-width: 640px) {
+  .lq-options-grid { grid-template-columns: 1fr; }
+  .lq-question h2 { font-size: 1.25rem; }
+  .lq-countdown-number { font-size: 5rem; }
+  .lq-countdown-go { font-size: 3rem; }
+}
+
+/* ── Host view ─────────────────────────────────────────────────── */
+.lq-host-badge { background: var(--bg-card); border: 1px solid var(--border); padding: 4px 14px; border-radius: 50px; color: var(--text-secondary); }
+.lq-host-view { width: 100%; }
+.lq-option-host {
+  cursor: default; pointer-events: none;
+  display: flex; align-items: center; gap: 14px; padding: 18px 20px;
+  background: var(--bg-card); border: 2px solid var(--border); border-radius: var(--radius-lg);
+  color: var(--text-primary); font-size: 1rem; position: relative; overflow: hidden;
+}
+.lq-option-host::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--opt-color); }
+.lq-option-count {
+  font-family: var(--font-heading); font-weight: 700; font-size: 0.875rem;
+  color: var(--text-muted); background: var(--bg-elevated); padding: 2px 10px;
+  border-radius: 50px; margin-left: auto;
+}
+
+/* ── Question points display ───────────────────────────────────── */
+.lq-question-points {
+  display: inline-block; margin-top: 0.5rem; padding: 3px 12px; border-radius: 50px;
+  background: var(--purple-glow); color: var(--purple-light); font-size: 0.813rem; font-weight: 600;
+}
+
