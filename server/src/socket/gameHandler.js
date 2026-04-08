@@ -117,7 +117,7 @@ function setupGameHandler(io, socket, activeRooms) {
   });
 
   // ─── Submit an answer ─────────────────────────────────────────────
-  socket.on('question:answer', async ({ roomCode, questionId, optionId }) => {
+  socket.on('question:answer', async ({ roomCode, questionId, optionId, optionIds, textAnswer }) => {
     try {
       const activeRoom = activeRooms.get(roomCode);
       if (!activeRoom || activeRoom.status !== 'active') return;
@@ -134,12 +134,29 @@ function setupGameHandler(io, socket, activeRooms) {
 
       const timeElapsed = Date.now() - activeRoom.questionStartTime;
       const timeLimit = (question.time_limit || activeRoom.quiz.time_per_question) * 1000;
-
-      // 1.5 s grace window for network latency
       if (timeElapsed > timeLimit + 1500) return;
 
-      const selectedOption = question.options.find(o => o.id === optionId);
-      const isCorrect = selectedOption ? selectedOption.is_correct : false;
+      const qType = question.question_type || 'single';
+      let isCorrect = false;
+      let selectedOptionId = optionId || null;
+      let selectedOptionIds = optionIds || null;
+      let answerText = textAnswer || null;
+
+      if (qType === 'fill_blank') {
+        // Compare against all accepted answers (case-insensitive, trimmed)
+        const acceptedAnswers = (question.options || []).filter(o => o.is_correct).map(o => o.option_text.trim().toLowerCase());
+        const userAnswer = (textAnswer || '').trim().toLowerCase();
+        isCorrect = acceptedAnswers.includes(userAnswer);
+      } else if (qType === 'multiple') {
+        // Must select EXACTLY all correct options
+        const correctIds = new Set(question.options.filter(o => o.is_correct).map(o => o.id));
+        const selected = new Set(optionIds || []);
+        isCorrect = correctIds.size === selected.size && [...correctIds].every(id => selected.has(id));
+      } else {
+        // Single choice
+        const selectedOption = question.options.find(o => o.id === optionId);
+        isCorrect = selectedOption ? selectedOption.is_correct : false;
+      }
 
       const scoreResult = calculateScore(
         isCorrect,
@@ -160,18 +177,20 @@ function setupGameHandler(io, socket, activeRooms) {
         userId: socket.userId,
         participantId: participant.id,
         questionId,
-        optionId,
+        optionId: selectedOptionId,
+        optionIds: selectedOptionIds,
+        textAnswer: answerText,
         isCorrect,
         timeTakenMs: timeElapsed,
         pointsAwarded: scoreResult.points,
       });
 
       socket.emit('question:answered', {
-        isCorrect,
-        pointsAwarded: scoreResult.points,
-        streakBonus: scoreResult.streakBonus,
+        submitted: true,
+        selectedOptionId,
+        selectedOptionIds,
+        textAnswer: answerText,
         totalScore: participant.score,
-        streak: participant.streak,
       });
 
       const questionAnswerCount = countAnswersForQuestion(activeRoom, questionId);
@@ -183,8 +202,6 @@ function setupGameHandler(io, socket, activeRooms) {
         });
       }
 
-      // FIX: compare against activePlayerCount (snapshot at quiz start),
-      // not participants.size (which grows if late joiners are added).
       if (questionAnswerCount >= activeRoom.activePlayerCount) {
         clearTimeout(activeRoom.questionTimer);
         if (activeRoom.tickInterval) clearInterval(activeRoom.tickInterval);
@@ -232,16 +249,25 @@ function countAnswersForQuestion(activeRoom, questionId) {
 // ═══════════════════════════════════════════════════════════════════════
 function sanitizeQuestion(question) {
   if (!question) return null;
-  return {
+  const qType = question.question_type || 'single';
+  const base = {
     id: question.id,
     questionText: question.question_text,
-    options: (question.options || []).map(o => ({
+    questionType: qType,
+    points: question.points,
+  };
+  if (qType === 'fill_blank') {
+    // Don't send accepted answers to client — they type their own
+    base.options = [];
+    base.acceptedCount = (question.options || []).filter(o => o.is_correct).length;
+  } else {
+    base.options = (question.options || []).map(o => ({
       id: o.id,
       optionText: o.option_text,
       orderIndex: o.order_index,
-    })),
-    points: question.points,
-  };
+    }));
+  }
+  return base;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -351,10 +377,45 @@ function endQuestion(io, roomCode, activeRooms) {
   const correctCount = questionAnswers.filter(a => a.isCorrect).length;
   const totalAnswered = questionAnswers.length;
 
-  io.to(roomCode).emit('question:timeUp', {
-    correctOptionId: correctOption ? correctOption.id : null,
+  const qType = question.question_type || 'single';
+
+  // Build reveal payload based on question type
+  const revealData = {
+    questionType: qType,
     stats: { optionCounts, correctCount, totalAnswered, totalPlayers: activeRoom.participants.size },
-  });
+  };
+
+  if (qType === 'fill_blank') {
+    // Send all accepted answers so clients can display them
+    revealData.acceptedAnswers = question.options.filter(o => o.is_correct).map(o => o.option_text);
+    revealData.correctOptionId = null;
+    revealData.correctOptionIds = null;
+  } else if (qType === 'multiple') {
+    revealData.correctOptionIds = question.options.filter(o => o.is_correct).map(o => o.id);
+    revealData.correctOptionId = null;
+  } else {
+    revealData.correctOptionId = correctOption ? correctOption.id : null;
+    revealData.correctOptionIds = null;
+  }
+
+  io.to(roomCode).emit('question:timeUp', revealData);
+
+  // Now reveal each student's personal answer result
+  for (const [userId, participant] of activeRoom.participants) {
+    if (!participant.socketId) continue;
+    const answer = questionAnswers.find(a => a.userId === userId);
+    if (answer) {
+      io.to(participant.socketId).emit('question:answerReveal', {
+        isCorrect: answer.isCorrect,
+        pointsAwarded: answer.pointsAwarded,
+        selectedOptionId: answer.optionId,
+        selectedOptionIds: answer.optionIds,
+        textAnswer: answer.textAnswer,
+        totalScore: participant.score,
+        streak: participant.streak,
+      });
+    }
+  }
 
   // FIX: build leaderboard with userId included so every lookup is by
   // identity, not by display name (display names are not unique).

@@ -37,6 +37,35 @@
 .q-form-input { flex: 1; padding: 8px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.875rem; outline: none; }
 .q-form-input:focus { border-color: var(--purple); }
 
-.q-points-badge { font-size: 0.75rem; font-weight: 600; color: var(--purple-light); background: var(--purple-glow); padding: 3px 10px; border-radius: 50px; flex-shrink: 0; margin-left: auto; }
+.q-points-badge { font-size: 0.75rem; font-weight: 600; color: var(--purple-light); background: var(--purple-glow); padding: 3px 10px; border-radius: 50px; flex-shrink: 0; }
 
-@media (max-width: 640px) { .q-options-grid { grid-template-columns: 1fr; } }
+/* ── Question type badge ──────────────────────────────────────────── */
+.q-type-badge { font-size: 0.688rem; font-weight: 600; padding: 3px 8px; border-radius: var(--radius-sm); flex-shrink: 0; }
+.q-type-single { background: rgba(34,211,238,0.12); color: #22d3ee; }
+.q-type-multiple { background: rgba(167,139,250,0.12); color: #a78bfa; }
+.q-type-fill_blank { background: rgba(245,158,11,0.12); color: #f59e0b; }
+
+/* ── Question type selector in form ─────────────────────────────── */
+.q-type-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.q-type-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 8px; background: var(--bg-secondary); border: 2px solid var(--border); border-radius: var(--radius-md); cursor: pointer; transition: all var(--transition); }
+.q-type-btn:hover { border-color: var(--purple); }
+.q-type-btn-active { border-color: var(--purple) !important; background: var(--purple-glow); }
+.q-type-btn-label { font-size: 0.813rem; font-weight: 600; color: var(--text-primary); }
+.q-type-btn-desc { font-size: 0.688rem; color: var(--text-muted); }
+
+/* ── Fill in the blank: accepted answers ────────────────────────── */
+.q-fill-section { display: flex; flex-direction: column; gap: 8px; }
+.q-fill-label { font-size: 0.813rem; font-weight: 600; color: var(--text-secondary); }
+.q-fill-hint { font-weight: 400; color: var(--text-muted); font-size: 0.75rem; }
+.q-fill-row { display: flex; align-items: center; gap: 8px; }
+.q-fill-remove { background: none; border: none; color: var(--red); font-size: 1rem; cursor: pointer; padding: 4px; border-radius: 4px; }
+.q-fill-remove:hover { background: rgba(248,113,113,0.15); }
+.q-fill-add { background: none; border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 6px 12px; color: var(--text-muted); font-size: 0.813rem; cursor: pointer; transition: all var(--transition); }
+.q-fill-add:hover { border-color: var(--purple); color: var(--purple); }
+
+/* ── Accepted answers display in question list ──────────────────── */
+.q-accepted-answers { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.q-accepted-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
+.q-accepted-chip { font-size: 0.75rem; padding: 3px 10px; background: rgba(245,158,11,0.12); color: #f59e0b; border-radius: 50px; font-weight: 500; }
+
+@media (max-width: 640px) { .q-options-grid { grid-template-columns: 1fr; } .q-type-selector { grid-template-columns: 1fr; } }

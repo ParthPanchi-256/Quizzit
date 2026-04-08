@@ -52,15 +52,34 @@ exports.addQuestion = async (req, res, next) => {
     if (!existing) return res.status(404).json({ error: 'Quiz not found' });
     if (existing.creator_id !== req.user.id) return res.status(403).json({ error: 'Not authorized' });
 
-    const { questionText, points, timeLimit, options } = req.body;
-    if (!questionText || !options || options.length < 2) {
-      return res.status(400).json({ error: 'Question text and at least 2 options are required' });
+    const { questionText, questionType, points, timeLimit, options } = req.body;
+    const type = questionType || 'single';
+
+    if (!questionText) {
+      return res.status(400).json({ error: 'Question text is required' });
     }
-    const hasCorrect = options.some(o => o.isCorrect);
-    if (!hasCorrect) return res.status(400).json({ error: 'At least one option must be correct' });
+
+    if (type === 'fill_blank') {
+      // Fill-in-the-blank: options are the accepted answers (each with isCorrect=true)
+      if (!options || options.length < 1 || !options.some(o => o.optionText?.trim())) {
+        return res.status(400).json({ error: 'At least one accepted answer is required' });
+      }
+    } else {
+      // Single or Multiple choice
+      if (!options || options.length < 2) {
+        return res.status(400).json({ error: 'At least 2 options are required' });
+      }
+      const hasCorrect = options.some(o => o.isCorrect);
+      if (!hasCorrect) return res.status(400).json({ error: 'At least one option must be correct' });
+
+      if (type === 'multiple') {
+        const correctCount = options.filter(o => o.isCorrect).length;
+        if (correctCount < 2) return res.status(400).json({ error: 'Multiple choice needs at least 2 correct answers' });
+      }
+    }
 
     const orderIndex = await Question.getNextOrderIndex(req.params.id);
-    const question = await Question.create({ quizId: req.params.id, orderIndex, questionText, points, timeLimit, options });
+    const question = await Question.create({ quizId: req.params.id, orderIndex, questionText, questionType: type, points, timeLimit, options });
     res.status(201).json({ question });
   } catch (err) { next(err); }
 };

@@ -1,14 +1,14 @@
 const db = require('../config/db');
 
 class Question {
-  static async create({ quizId, orderIndex, questionText, points, timeLimit, options }) {
+  static async create({ quizId, orderIndex, questionText, questionType, points, timeLimit, options }) {
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
       const qResult = await client.query(
-        `INSERT INTO questions (quiz_id, order_index, question_text, points, time_limit)
-         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [quizId, orderIndex, questionText, points || 10, timeLimit]
+        `INSERT INTO questions (quiz_id, order_index, question_text, question_type, points, time_limit)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [quizId, orderIndex, questionText, questionType || 'single', points || 10, timeLimit]
       );
       const question = qResult.rows[0];
 
@@ -32,13 +32,13 @@ class Question {
     }
   }
 
-  static async update(id, { questionText, points, timeLimit, options }) {
+  static async update(id, { questionText, questionType, points, timeLimit, options }) {
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
       await client.query(
-        `UPDATE questions SET question_text = COALESCE($1, question_text), points = COALESCE($2, points), time_limit = $3 WHERE id = $4`,
-        [questionText, points, timeLimit, id]
+        `UPDATE questions SET question_text = COALESCE($1, question_text), question_type = COALESCE($2, question_type), points = COALESCE($3, points), time_limit = $4 WHERE id = $5`,
+        [questionText, questionType, points, timeLimit, id]
       );
 
       if (options) {

@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS questions (
   quiz_id UUID NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
   order_index INTEGER NOT NULL,
   question_text TEXT NOT NULL,
+  question_type VARCHAR(20) DEFAULT 'single',
   points INTEGER DEFAULT 10,
   time_limit INTEGER,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
