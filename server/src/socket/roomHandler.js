@@ -139,6 +139,7 @@ function setupRoomHandler(io, socket, activeRooms) {
       activeRoom.hostSocketId = socket.id;
 
       const participants = await Room.getParticipants(room.id);
+      const quiz = await Quiz.findByIdWithQuestions(room.quiz_id);
 
       socket.emit('room:hostJoined', {
         roomCode,
@@ -149,6 +150,10 @@ function setupRoomHandler(io, socket, activeRooms) {
           avatarColor: p.avatarColor,
         })),
         dbParticipants: participants,
+        quizTitle: room.quiz_title,
+        quizDescription: room.quiz_description,
+        questionCount: quiz?.questions?.length || 0,
+        timePerQuestion: room.time_per_question,
       });
     } catch (err) {
       console.error('room:hostJoin error:', err);

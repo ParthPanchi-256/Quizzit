@@ -1,0 +1,84 @@
+/* ── Join Quiz Page ───────────────────────────────────────────── */
+.join-page {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 2rem; background: radial-gradient(ellipse at 50% 30%, rgba(124,92,252,0.05) 0%, transparent 70%);
+}
+.join-card {
+  width: 100%; max-width: 440px; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-xl, 20px); padding: 2rem; text-align: center;
+}
+.join-header { margin-bottom: 1.5rem; }
+.join-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+.join-header h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+.join-header p { font-size: 0.875rem; color: var(--text-muted); }
+
+/* ── Tabs ─────────────────────────────────────────────────────── */
+.join-tabs {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 1.5rem;
+}
+.join-tab {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 8px; background: var(--bg-secondary); border: 2px solid var(--border);
+  border-radius: var(--radius-md); cursor: pointer; font-size: 0.875rem; font-weight: 600;
+  color: var(--text-secondary); transition: all var(--transition);
+}
+.join-tab:hover { border-color: var(--purple); }
+.join-tab-active { border-color: var(--purple) !important; background: var(--purple-glow); color: var(--purple-light); }
+.join-tab-icon { font-size: 1.25rem; }
+
+/* ── Tab content ──────────────────────────────────────────────── */
+.join-tab-content { margin-bottom: 1rem; }
+.join-tab-desc { font-size: 0.813rem; color: var(--text-muted); margin-bottom: 1.25rem; }
+
+/* ── OTP-style PIN input ──────────────────────────────────────── */
+.pin-input-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 1.25rem; }
+.pin-digit-input {
+  width: 48px; height: 60px; text-align: center; font-family: var(--font-heading);
+  font-size: 1.5rem; font-weight: 800; text-transform: uppercase;
+  background: var(--bg-secondary); border: 2px solid var(--border); border-radius: var(--radius-md);
+  color: var(--text-primary); outline: none; caret-color: var(--purple);
+  transition: all var(--transition);
+}
+.pin-digit-input:focus { border-color: var(--purple); box-shadow: 0 0 12px rgba(124,92,252,0.2); }
+.pin-digit-filled { border-color: var(--purple); background: var(--purple-glow); }
+
+/* ── QR Scanner ───────────────────────────────────────────────── */
+.qr-scanner-container {
+  position: relative; min-height: 280px; border-radius: var(--radius-lg); overflow: hidden;
+  background: var(--bg-secondary); border: 1px solid var(--border); margin-bottom: 1rem;
+}
+.qr-reader-viewport { width: 100%; }
+.qr-reader-viewport video { border-radius: var(--radius-lg); }
+
+/* html5-qrcode overrides */
+#qr-reader { border: none !important; }
+#qr-reader__scan_region { border-radius: var(--radius-lg) !important; }
+#qr-reader__dashboard { display: none !important; }
+#qr-reader__header_message { display: none !important; }
+
+.qr-loading, .qr-error {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px; background: var(--bg-secondary);
+}
+.qr-loading p, .qr-error p { font-size: 0.875rem; color: var(--text-muted); }
+.qr-error-icon { font-size: 2rem; }
+
+/* ── URL hint ─────────────────────────────────────────────────── */
+.join-url-hint {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 0.75rem; color: var(--text-muted); padding: 12px; margin-top: 0.5rem;
+  background: var(--bg-secondary); border-radius: var(--radius-md);
+}
+
+/* ── Loading state ────────────────────────────────────────────── */
+.join-loading { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 2rem; }
+.join-spinner {
+  width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--purple);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 480px) {
+  .pin-digit-input { width: 42px; height: 52px; font-size: 1.25rem; }
+  .join-card { padding: 1.5rem; }
+}

@@ -1,11 +1,72 @@
 .lobby-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; background: radial-gradient(ellipse at 50% 30%, rgba(124,92,252,0.05) 0%, transparent 70%); }
-.lobby-content { text-align: center; width: 100%; max-width: 700px; }
-.lobby-header h1 { font-size: 2rem; margin-bottom: 1.5rem; }
+.lobby-content { text-align: center; width: 100%; max-width: 760px; }
+.lobby-header h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+.lobby-quiz-name { font-size: 1rem; color: var(--text-muted); margin-bottom: 1rem; }
 .lobby-room-info { display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem; }
 .lobby-code-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 2rem; display: flex; flex-direction: column; gap: 4px; }
 .lobby-code-label { font-size: 0.688rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
 .lobby-code-value { font-family: var(--font-heading); font-size: 2rem; font-weight: 800; letter-spacing: 0.1em; color: var(--purple-light); }
 
+/* ── Share & Join Panel (Host) ────────────────────────────────── */
+.share-panel { margin-bottom: 2rem; }
+.share-quiz-info {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 1.5rem 2rem; margin-bottom: 1.5rem; text-align: center;
+}
+.share-quiz-title { font-size: 1.75rem; font-weight: 800; margin-bottom: 0.25rem; }
+.share-quiz-desc { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
+.share-quiz-meta { display: flex; gap: 8px; justify-content: center; font-size: 0.813rem; color: var(--text-muted); margin-bottom: 1rem; }
+.share-invite-btn {
+  background: var(--purple-glow); color: var(--purple-light); border: 1px solid rgba(124,92,252,0.2);
+  padding: 8px 20px; border-radius: 50px; font-size: 0.813rem; font-weight: 600; cursor: pointer;
+  transition: all var(--transition);
+}
+.share-invite-btn:hover { background: rgba(124,92,252,0.2); border-color: var(--purple); }
+
+/* Methods grid */
+.share-methods {
+  display: grid; grid-template-columns: auto 1fr; gap: 1.25rem; align-items: start;
+}
+.share-method {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 1.25rem; text-align: center;
+}
+.share-method-label { font-size: 0.813rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.share-right-col { display: flex; flex-direction: column; gap: 1.25rem; }
+
+/* QR Code */
+.share-qr { display: flex; flex-direction: column; align-items: center; }
+.share-qr-wrapper {
+  background: rgba(124,92,252,0.06); border: 2px solid rgba(124,92,252,0.15);
+  border-radius: var(--radius-lg); padding: 16px; display: inline-flex;
+}
+
+/* PIN display */
+.share-pin-display { display: flex; gap: 10px; justify-content: center; margin-bottom: 0.75rem; }
+.share-pin-digit {
+  width: 48px; height: 56px; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-heading); font-size: 1.75rem; font-weight: 800; color: var(--purple-light);
+  background: var(--bg-secondary); border: 2px solid var(--border); border-radius: var(--radius-md);
+  letter-spacing: 0; transition: border-color var(--transition);
+}
+.share-pin-digit:hover { border-color: var(--purple); }
+
+/* URL display */
+.share-url-box {
+  background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 10px 14px; margin-bottom: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.share-url-text { font-size: 0.813rem; color: var(--text-secondary); font-family: monospace; word-break: break-all; }
+
+/* Copy button */
+.share-copy-btn {
+  background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border);
+  padding: 6px 18px; border-radius: 50px; font-size: 0.75rem; font-weight: 600; cursor: pointer;
+  transition: all var(--transition);
+}
+.share-copy-btn:hover { background: var(--purple-glow); color: var(--purple-light); border-color: var(--purple); }
+
+/* ── Player count + grid ──────────────────────────────────────── */
 .lobby-player-count { margin-bottom: 2rem; }
 .player-count-num { font-family: var(--font-heading); font-size: 3rem; font-weight: 800; color: var(--text-primary); }
 .player-count-label { display: block; font-size: 0.875rem; color: var(--text-muted); }
@@ -26,3 +87,9 @@
 .countdown-overlay { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .countdown-number { font-family: var(--font-heading); font-size: 8rem; font-weight: 800; color: var(--purple); animation: countPulse 1s ease; }
 .countdown-text { font-size: 1.5rem; color: var(--text-secondary); font-weight: 600; }
+
+@media (max-width: 640px) {
+  .share-methods { grid-template-columns: 1fr; }
+  .share-qr-wrapper svg { width: 180px !important; height: 180px !important; }
+  .share-pin-digit { width: 40px; height: 48px; font-size: 1.5rem; }
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ui/Toast';
@@ -123,21 +123,51 @@ function EducatorDashboard() {
 }
 
 function StudentDashboard() {
-  const [roomCode, setRoomCode] = useState('');
+  const PIN_LENGTH = 6;
+  const [pinDigits, setPinDigits] = useState(Array(PIN_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
+  const digitRefs = useRef([]);
   const navigate = useNavigate();
   const toast = useToast();
 
-  const joinRoom = async (e) => {
-    e.preventDefault();
-    if (!roomCode.trim()) return toast.error('Enter a room code');
+  const joinRoom = async (code) => {
+    if (code.length < PIN_LENGTH) return toast.error('Enter a complete room code');
     setLoading(true);
     try {
-      await api.post(`/rooms/${roomCode.toUpperCase()}/join`);
-      navigate(`/room/${roomCode.toUpperCase()}/lobby`);
+      await api.post(`/rooms/${code}/join`);
+      navigate(`/room/${code}/lobby`);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to join room');
     } finally { setLoading(false); }
+  };
+
+  const handleDigitChange = (index, value) => {
+    if (!/^[a-zA-Z0-9]?$/.test(value)) return;
+    const newDigits = [...pinDigits];
+    newDigits[index] = value.toUpperCase();
+    setPinDigits(newDigits);
+    if (value && index < PIN_LENGTH - 1) digitRefs.current[index + 1]?.focus();
+    if (value && index === PIN_LENGTH - 1) {
+      const code = newDigits.join('');
+      if (code.length === PIN_LENGTH) joinRoom(code);
+    }
+  };
+
+  const handleDigitKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !pinDigits[index] && index > 0) digitRefs.current[index - 1]?.focus();
+    if (e.key === 'Enter') { const code = pinDigits.join(''); if (code.length === PIN_LENGTH) joinRoom(code); }
+  };
+
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\s/g, '').toUpperCase().slice(0, PIN_LENGTH);
+    if (pasted.length > 0) {
+      const newDigits = Array(PIN_LENGTH).fill('');
+      pasted.split('').forEach((ch, i) => { if (i < PIN_LENGTH) newDigits[i] = ch; });
+      setPinDigits(newDigits);
+      if (pasted.length === PIN_LENGTH) setTimeout(() => joinRoom(pasted), 200);
+      else digitRefs.current[pasted.length]?.focus();
+    }
   };
 
   return (
@@ -145,11 +175,26 @@ function StudentDashboard() {
       <div className="student-dash">
         <div className="join-section animate-fade-in">
           <h1>Join a Quiz</h1>
-          <p className="dash-subtitle">Enter the room code from your teacher</p>
-          <form onSubmit={joinRoom} className="join-form">
-            <Input label="Room Code" value={roomCode} onChange={e => setRoomCode(e.target.value.toUpperCase())} placeholder="ABCD12" style={{textTransform:'uppercase', letterSpacing:'0.15em', fontWeight:700, fontSize:'1.25rem', textAlign:'center'}} />
-            <Button type="submit" loading={loading} fullWidth size="lg">Join Room</Button>
-          </form>
+          <p className="dash-subtitle">Enter the room PIN from your teacher</p>
+          <div className="student-pin-row" onPaste={handlePaste}>
+            {pinDigits.map((d, i) => (
+              <input
+                key={i}
+                ref={el => digitRefs.current[i] = el}
+                className={`student-pin-digit ${d ? 'student-pin-filled' : ''}`}
+                type="text" maxLength={1} value={d}
+                onChange={e => handleDigitChange(i, e.target.value)}
+                onKeyDown={e => handleDigitKeyDown(i, e)}
+                autoFocus={i === 0} inputMode="text" autoComplete="off"
+              />
+            ))}
+          </div>
+          <Button onClick={() => joinRoom(pinDigits.join(''))} loading={loading} fullWidth size="lg"
+            disabled={pinDigits.join('').length < PIN_LENGTH}>Join Room</Button>
+          <div className="student-alt-join">
+            <span>or</span>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/join')}>📷 Scan QR Code</Button>
+          </div>
         </div>
       </div>
     </div>
