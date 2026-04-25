@@ -165,6 +165,8 @@ export default function LiveQuiz() {
 
     const handleAnswered = (data) => {
       if (!mountedRef.current) return;
+      // Don't regress phase if reveal/leaderboard already arrived
+      if (phaseRef.current === 'reveal' || phaseRef.current === 'leaderboard') return;
       setAnswerSubmitted(true);
       if (data.selectedOptionId) setSelectedOption(data.selectedOptionId);
       if (data.selectedOptionIds) setSelectedOptions(new Set(data.selectedOptionIds));
@@ -485,8 +487,11 @@ export default function LiveQuiz() {
 
             {isHost && (
               <div className="lq-host-actions">
-                <button className="btn btn-primary btn-lg" onClick={nextQuestion}>Next Question →</button>
-                <button className="btn btn-ghost btn-sm" onClick={endQuiz} style={{color:'var(--red)', marginTop:'0.5rem'}}>End Quiz</button>
+                <p className="lq-auto-advance-hint">Auto-advancing in a few seconds...</p>
+                <div style={{display:'flex', gap:'12px', alignItems:'center'}}>
+                  <button className="btn btn-secondary btn-sm" onClick={nextQuestion}>Skip →</button>
+                  <button className="btn btn-ghost btn-sm" onClick={endQuiz} style={{color:'var(--red)'}}>End Quiz</button>
+                </div>
               </div>
             )}
           </div>

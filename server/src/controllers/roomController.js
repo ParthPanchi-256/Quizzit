@@ -58,3 +58,17 @@ exports.getResults = async (req, res, next) => {
     res.json(results);
   } catch (err) { next(err); }
 };
+
+exports.getMyAttempts = async (req, res, next) => {
+  try {
+    const attempts = await Room.findByStudent(req.user.id);
+    res.json({ attempts });
+  } catch (err) { next(err); }
+};
+
+exports.getMyAnswers = async (req, res, next) => {
+  try {
+    const answers = await Room.getStudentAnswers(req.params.code, req.user.id);
+    res.json({ answers });
+  } catch (err) { next(err); }
+};

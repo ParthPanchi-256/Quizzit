@@ -50,6 +50,10 @@ export default function Lobby() {
       setRoomInfo(data);
       setTotalPlayers(data.totalPlayers);
       setQuizMeta(prev => ({ ...prev, title: data.quizTitle || prev.title }));
+      // If the quiz is already in progress, redirect to the play page
+      if (data.status === 'active' || data.status === 'starting') {
+        navigate(`/room/${code}/play`, { replace: true });
+      }
     });
     socket.on('room:lateJoin', () => navigate(`/room/${code}/play`, { replace: true }));
     socket.on('room:playerJoined', (data) => { setPlayers(data.players || []); setTotalPlayers(data.totalPlayers); });
@@ -66,14 +70,20 @@ export default function Lobby() {
     });
 
     socket.on('error', (data) => console.error('Socket error:', data.message));
+    socket.on('room:finished', () => navigate(isHost ? '/dashboard' : '/', { replace: true }));
 
     return () => {
       socket.off('room:joined'); socket.off('room:hostJoined'); socket.off('room:playerJoined');
-      socket.off('room:playerLeft'); socket.off('room:quizStarted'); socket.off('room:lateJoin'); socket.off('error');
+      socket.off('room:playerLeft'); socket.off('room:quizStarted'); socket.off('room:lateJoin');
+      socket.off('room:finished'); socket.off('error');
     };
   }, [socket, code, isHost, navigate]);
 
   const startQuiz = () => { if (socket) socket.emit('room:start', { roomCode: code }); };
+  const endQuiz = () => {
+    if (!confirm('Are you sure you want to cancel this room?')) return;
+    if (socket) socket.emit('room:end', { roomCode: code });
+  };
 
   const copyToClipboard = useCallback((text, label) => {
     navigator.clipboard.writeText(text).then(() => toast.success(`${label} copied!`)).catch(() => toast.error('Copy failed'));
@@ -195,6 +205,7 @@ export default function Lobby() {
             <Button onClick={startQuiz} size="lg" disabled={totalPlayers === 0}>
               Start Quiz ({totalPlayers} players)
             </Button>
+            <button className="lobby-cancel-btn" onClick={endQuiz}>Cancel Room</button>
           </div>
         ) : (
           <div className="lobby-waiting">

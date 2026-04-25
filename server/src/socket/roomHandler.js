@@ -33,6 +33,7 @@ function setupRoomHandler(io, socket, activeRooms) {
           questionEndTime: null,
           questionEnding: false,
           answers: new Map(),
+          locks: new Map(), // Per-user locks for answer submission
           quiz: null,
           phase: 'waiting',
           tickInterval: null,
@@ -49,6 +50,12 @@ function setupRoomHandler(io, socket, activeRooms) {
       if (existingParticipant) {
         // Reconnection — just restore the socket reference
         existingParticipant.socketId = socket.id;
+
+        // If the quiz is already running, redirect them straight to the play page
+        if (activeRoom.status === 'active' || activeRoom.status === 'starting') {
+          socket.emit('room:lateJoin');
+          return;
+        }
       } else if (activeRoom.status === 'active' || activeRoom.status === 'starting') {
         // New player trying to join mid-quiz — block them
         return socket.emit('error', { message: 'Quiz is already in progress' });
@@ -128,6 +135,7 @@ function setupRoomHandler(io, socket, activeRooms) {
           questionEndTime: null,
           questionEnding: false,
           answers: new Map(),
+          locks: new Map(), // Per-user locks for answer submission
           quiz: null,
           phase: 'waiting',
           tickInterval: null,

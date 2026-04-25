@@ -67,11 +67,11 @@ class Room {
     return result.rows[0];
   }
 
-  static async saveAnswer({ roomId, participantId, questionId, selectedOptionId, isCorrect, timeTakenMs, pointsAwarded }) {
+  static async saveAnswer({ roomId, participantId, questionId, selectedOptionId, selectedOptionIds, textAnswer, isCorrect, timeTakenMs, pointsAwarded }) {
     const result = await db.query(
-      `INSERT INTO answers (room_id, participant_id, question_id, selected_option_id, is_correct, time_taken_ms, points_awarded)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (participant_id, question_id) DO NOTHING RETURNING *`,
-      [roomId, participantId, questionId, selectedOptionId, isCorrect, timeTakenMs, pointsAwarded]
+      `INSERT INTO answers (room_id, participant_id, question_id, selected_option_id, selected_option_ids, text_answer, is_correct, time_taken_ms, points_awarded)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (participant_id, question_id) DO NOTHING RETURNING *`,
+      [roomId, participantId, questionId, selectedOptionId, selectedOptionIds || null, textAnswer || null, isCorrect, timeTakenMs, pointsAwarded]
     );
     return result.rows[0];
   }
@@ -102,6 +102,48 @@ class Room {
       [room.id]
     );
     return { room, participants: participants.rows };
+  }
+
+  static async findByStudent(userId) {
+    const result = await db.query(
+      `SELECT qr.room_code, qr.status, qr.ended_at,
+              q.title AS quiz_title, q.description AS quiz_description,
+              rp.score, rp.rank, rp.correct_count, rp.best_streak, rp.avg_time_ms,
+              u.display_name AS host_name,
+              (SELECT COUNT(*)::int FROM room_participants WHERE room_id = qr.id) AS total_players,
+              (SELECT COUNT(*)::int FROM questions WHERE quiz_id = q.id) AS total_questions
+       FROM room_participants rp
+         JOIN quiz_rooms qr ON rp.room_id = qr.id
+         JOIN quizzes q ON qr.quiz_id = q.id
+         JOIN users u ON qr.host_id = u.id
+       WHERE rp.user_id = $1 AND qr.status = 'finished'
+       ORDER BY qr.ended_at DESC`,
+      [userId]
+    );
+    return result.rows;
+  }
+
+  static async getStudentAnswers(roomCode, userId) {
+    const result = await db.query(
+      `SELECT qs.question_text, qs.question_type, qs.points, qs.order_index,
+              a.is_correct, a.time_taken_ms, a.points_awarded,
+              a.selected_option_id, a.selected_option_ids, a.text_answer,
+              (SELECT json_agg(
+                json_build_object(
+                  'id', o.id, 'option_text', o.option_text,
+                  'is_correct', o.is_correct, 'order_index', o.order_index
+                ) ORDER BY o.order_index
+              ) FROM options o WHERE o.question_id = qs.id
+              ) AS options
+       FROM answers a
+         JOIN room_participants rp ON a.participant_id = rp.id
+         JOIN questions qs ON a.question_id = qs.id
+       WHERE rp.room_id = (SELECT id FROM quiz_rooms WHERE room_code = $1)
+         AND rp.user_id = $2
+       ORDER BY qs.order_index`,
+      [roomCode, userId]
+    );
+    return result.rows;
   }
 }
 

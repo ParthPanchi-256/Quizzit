@@ -85,6 +85,8 @@ CREATE TABLE IF NOT EXISTS answers (
   participant_id UUID NOT NULL REFERENCES room_participants(id) ON DELETE CASCADE,
   question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
   selected_option_id UUID REFERENCES options(id),
+  selected_option_ids UUID[],
+  text_answer TEXT,
   is_correct BOOLEAN DEFAULT FALSE,
   time_taken_ms INTEGER,
   points_awarded INTEGER DEFAULT 0,

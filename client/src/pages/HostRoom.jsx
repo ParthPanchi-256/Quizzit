@@ -10,6 +10,7 @@ export default function HostRoom() {
   const [quiz, setQuiz] = useState(null);
   const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -24,12 +25,15 @@ export default function HostRoom() {
   };
 
   const createRoom = async () => {
+    if (creating) return;
+    setCreating(true);
     try {
       const { data } = await api.post('/rooms', { quizId: id });
       setRoom(data.room);
       toast.success('Room created!');
       navigate(`/room/${data.room.room_code}/host`);
     } catch (err) { toast.error(err.response?.data?.error || 'Failed to create room'); }
+    finally { setCreating(false); }
   };
 
   if (loading) return <div className="page-container"><p style={{color:'var(--text-muted)'}}>Loading...</p></div>;
@@ -42,7 +46,7 @@ export default function HostRoom() {
           <h2>{quiz?.title}</h2>
           <p>{quiz?.questions?.length || 0} questions • {quiz?.time_per_question}s each</p>
         </div>
-        <Button onClick={createRoom} size="lg">Create Live Room</Button>
+        <Button onClick={createRoom} size="lg" loading={creating} disabled={creating}>Create Live Room</Button>
         <Button variant="ghost" onClick={() => navigate('/dashboard')} style={{marginTop:'0.5rem'}}>← Back to Dashboard</Button>
       </div>
     </div>

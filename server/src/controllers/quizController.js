@@ -109,3 +109,51 @@ exports.publishQuiz = async (req, res, next) => {
     res.json({ quiz: published });
   } catch (err) { next(err); }
 };
+
+/**
+ * AI Import — create a full quiz with all questions in one request.
+ * Called by the Python AI service after quiz generation.
+ * Auto-publishes so it's immediately ready to host.
+ */
+exports.aiImport = async (req, res, next) => {
+  try {
+    const { title, description, timePerQuestion, questions } = req.body;
+
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+    if (!questions || !questions.length) return res.status(400).json({ error: 'At least one question is required' });
+
+    // Create the quiz
+    const quiz = await Quiz.create({
+      creatorId: req.user.id,
+      title,
+      description: description || '',
+      timePerQuestion: timePerQuestion || 30,
+      shuffleQuestions: false,
+    });
+
+    // Add all questions
+    const createdQuestions = [];
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (!q.questionText || !q.options || !q.options.length) continue;
+      const question = await Question.create({
+        quizId: quiz.id,
+        orderIndex: i,
+        questionText: q.questionText,
+        questionType: q.questionType || 'single',
+        points: q.points || 10,
+        timeLimit: q.timeLimit || null,
+        options: q.options,
+      });
+      createdQuestions.push(question);
+    }
+
+    // Auto-publish
+    const published = await Quiz.publish(quiz.id);
+
+    res.status(201).json({
+      quiz: { ...published, questions: createdQuestions },
+      message: `Quiz created with ${createdQuestions.length} questions`,
+    });
+  } catch (err) { next(err); }
+};

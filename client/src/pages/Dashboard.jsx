@@ -57,7 +57,10 @@ function EducatorDashboard() {
           <h1>My Quizzes</h1>
           <p className="dash-subtitle">Create, manage, and host your quizzes</p>
         </div>
-        <Button onClick={() => setShowCreate(!showCreate)}>+ New Quiz</Button>
+        <div style={{display:'flex', gap:'8px'}}>
+          <Button onClick={() => navigate('/quiz/ai-generate')} variant="secondary">✨ AI Generate</Button>
+          <Button onClick={() => setShowCreate(!showCreate)}>+ New Quiz</Button>
+        </div>
       </div>
 
       {showCreate && (
@@ -125,20 +128,32 @@ function EducatorDashboard() {
 function StudentDashboard() {
   const PIN_LENGTH = 6;
   const [pinDigits, setPinDigits] = useState(Array(PIN_LENGTH).fill(''));
-  const [loading, setLoading] = useState(false);
+  const [joinLoading, setJoinLoading] = useState(false);
+  const [attempts, setAttempts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedAttempt, setSelectedAttempt] = useState(null);
+  const [answers, setAnswers] = useState([]);
+  const [detailLoading, setDetailLoading] = useState(false);
   const digitRefs = useRef([]);
   const navigate = useNavigate();
   const toast = useToast();
 
+  useEffect(() => {
+    api.get('/rooms/my-attempts')
+      .then(r => setAttempts(r.data.attempts))
+      .catch(() => toast.error('Failed to load quiz history'))
+      .finally(() => setLoading(false));
+  }, []);
+
   const joinRoom = async (code) => {
     if (code.length < PIN_LENGTH) return toast.error('Enter a complete room code');
-    setLoading(true);
+    setJoinLoading(true);
     try {
       await api.post(`/rooms/${code}/join`);
       navigate(`/room/${code}/lobby`);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to join room');
-    } finally { setLoading(false); }
+    } finally { setJoinLoading(false); }
   };
 
   const handleDigitChange = (index, value) => {
@@ -170,12 +185,48 @@ function StudentDashboard() {
     }
   };
 
+  const openDetail = async (attempt) => {
+    setSelectedAttempt(attempt);
+    setDetailLoading(true);
+    setAnswers([]);
+    try {
+      const { data } = await api.get(`/rooms/${attempt.room_code}/my-answers`);
+      setAnswers(data.answers);
+    } catch {
+      toast.error('Failed to load answers');
+    } finally { setDetailLoading(false); }
+  };
+
+  const closeDetail = () => {
+    setSelectedAttempt(null);
+    setAnswers([]);
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const formatTime = (ms) => {
+    if (!ms) return '—';
+    const s = (ms / 1000).toFixed(1);
+    return `${s}s`;
+  };
+
+  const getOptionLabel = (idx) => {
+    return String.fromCharCode(65 + idx); // A, B, C, D…
+  };
+
   return (
     <div className="page-container">
-      <div className="student-dash">
-        <div className="join-section animate-fade-in">
-          <h1>Join a Quiz</h1>
-          <p className="dash-subtitle">Enter the room PIN from your teacher</p>
+      {/* ── Join Section ────────────────────────────────────────── */}
+      <div className="stu-join-bar animate-fade-in">
+        <div className="stu-join-left">
+          <h2>Join a Quiz</h2>
+          <p className="dash-subtitle">Enter room PIN from your teacher</p>
+        </div>
+        <div className="stu-join-right">
           <div className="student-pin-row" onPaste={handlePaste}>
             {pinDigits.map((d, i) => (
               <input
@@ -189,14 +240,173 @@ function StudentDashboard() {
               />
             ))}
           </div>
-          <Button onClick={() => joinRoom(pinDigits.join(''))} loading={loading} fullWidth size="lg"
-            disabled={pinDigits.join('').length < PIN_LENGTH}>Join Room</Button>
-          <div className="student-alt-join">
-            <span>or</span>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/join')}>📷 Scan QR Code</Button>
+          <div className="stu-join-actions">
+            <Button onClick={() => joinRoom(pinDigits.join(''))} loading={joinLoading} size="sm"
+              disabled={pinDigits.join('').length < PIN_LENGTH}>Join</Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/join')}>📷 QR</Button>
           </div>
         </div>
       </div>
+
+      {/* ── Quiz History ────────────────────────────────────────── */}
+      <div className="stu-history-section animate-fade-in" style={{ animationDelay: '0.1s' }}>
+        <h2>My Quiz History</h2>
+        <p className="dash-subtitle">Review your past quiz attempts and answers</p>
+
+        {loading ? (
+          <div className="stu-loading">
+            {[1,2,3].map(i => <div key={i} className="stu-card-skeleton" />)}
+          </div>
+        ) : attempts.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">📚</div>
+            <h3>No quizzes yet</h3>
+            <p>Join a quiz to see your history here</p>
+          </div>
+        ) : (
+          <div className="stu-history-grid">
+            {attempts.map((a, idx) => (
+              <div
+                key={a.room_code}
+                className="stu-quiz-card"
+                onClick={() => openDetail(a)}
+                style={{ animationDelay: `${idx * 0.05}s` }}
+              >
+                <div className="stu-card-top">
+                  <span className="stu-card-date">{formatDate(a.ended_at)}</span>
+                  <span className="stu-rank-badge">
+                    #{a.rank} <span className="stu-rank-of">of {a.total_players}</span>
+                  </span>
+                </div>
+                <h3 className="stu-card-title">{a.quiz_title}</h3>
+                {a.quiz_description && <p className="stu-card-desc">{a.quiz_description}</p>}
+                <div className="stu-card-host">by {a.host_name}</div>
+                <div className="stu-card-stats">
+                  <div className="stu-stat">
+                    <span className="stu-stat-value">{a.score}</span>
+                    <span className="stu-stat-label">Score</span>
+                  </div>
+                  <div className="stu-stat">
+                    <span className="stu-stat-value">{a.correct_count}/{a.total_questions}</span>
+                    <span className="stu-stat-label">Correct</span>
+                  </div>
+                  <div className="stu-stat">
+                    <span className="stu-stat-value">🔥 {a.best_streak}</span>
+                    <span className="stu-stat-label">Streak</span>
+                  </div>
+                </div>
+                <div className="stu-card-accuracy">
+                  <div className="stu-accuracy-bar">
+                    <div
+                      className="stu-accuracy-fill"
+                      style={{ width: `${a.total_questions > 0 ? ((a.correct_count / a.total_questions) * 100) : 0}%` }}
+                    />
+                  </div>
+                  <span className="stu-accuracy-text">
+                    {a.total_questions > 0 ? Math.round((a.correct_count / a.total_questions) * 100) : 0}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Detail Modal ────────────────────────────────────────── */}
+      {selectedAttempt && (
+        <div className="stu-modal-overlay" onClick={closeDetail}>
+          <div className="stu-modal" onClick={e => e.stopPropagation()}>
+            <button className="stu-modal-close" onClick={closeDetail}>✕</button>
+
+            <div className="stu-modal-header">
+              <h2>{selectedAttempt.quiz_title}</h2>
+              <div className="stu-modal-meta">
+                <span className="stu-rank-badge stu-rank-badge-lg">
+                  #{selectedAttempt.rank} of {selectedAttempt.total_players}
+                </span>
+                <span className="stu-modal-score">{selectedAttempt.score} pts</span>
+                <span className="stu-modal-correct">
+                  {selectedAttempt.correct_count}/{selectedAttempt.total_questions} correct
+                </span>
+              </div>
+            </div>
+
+            <div className="stu-modal-body">
+              {detailLoading ? (
+                <div className="stu-detail-loading">
+                  <div className="btn-spinner" style={{ width: 28, height: 28, borderWidth: 3, borderColor: 'var(--border)', borderTopColor: 'var(--purple)' }} />
+                  <p>Loading answers…</p>
+                </div>
+              ) : answers.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No answer data available</p>
+              ) : (
+                <div className="stu-answers-list">
+                  {answers.map((ans, qi) => {
+                    const qType = ans.question_type || 'single';
+                    return (
+                      <div key={qi} className={`stu-answer-card ${ans.is_correct ? 'stu-answer-correct' : 'stu-answer-wrong'}`}>
+                        <div className="stu-answer-header">
+                          <span className="stu-q-num">Q{qi + 1}</span>
+                          <span className={`stu-verdict ${ans.is_correct ? 'stu-verdict-correct' : 'stu-verdict-wrong'}`}>
+                            {ans.is_correct ? '✓ Correct' : '✗ Wrong'}
+                          </span>
+                          <span className="stu-q-points">+{ans.points_awarded} pts</span>
+                        </div>
+                        <p className="stu-q-text">{ans.question_text}</p>
+
+                        {qType === 'fill_blank' ? (
+                          <div className="stu-fill-answer">
+                            <div className="stu-your-answer">
+                              <span className="stu-answer-label">Your answer:</span>
+                              <span className={`stu-answer-text ${ans.is_correct ? 'stu-text-correct' : 'stu-text-wrong'}`}>
+                                {ans.text_answer || '(no answer)'}
+                              </span>
+                            </div>
+                            {!ans.is_correct && ans.options && (
+                              <div className="stu-correct-answer">
+                                <span className="stu-answer-label">Accepted:</span>
+                                <span className="stu-answer-text stu-text-correct">
+                                  {ans.options.filter(o => o.is_correct).map(o => o.option_text).join(', ')}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="stu-options-list">
+                            {(ans.options || []).map((opt, oi) => {
+                              const isSelected = qType === 'multiple'
+                                ? (ans.selected_option_ids || []).includes(opt.id)
+                                : opt.id === ans.selected_option_id;
+                              const isCorrectOpt = opt.is_correct;
+                              let optClass = 'stu-opt';
+                              if (isSelected && isCorrectOpt) optClass += ' stu-opt-correct-selected';
+                              else if (isSelected && !isCorrectOpt) optClass += ' stu-opt-wrong-selected';
+                              else if (isCorrectOpt) optClass += ' stu-opt-correct-unselected';
+
+                              return (
+                                <div key={opt.id} className={optClass}>
+                                  <span className="stu-opt-letter">{getOptionLabel(oi)}</span>
+                                  <span className="stu-opt-text">{opt.option_text}</span>
+                                  {isSelected && <span className="stu-opt-badge">{isCorrectOpt ? '✓' : '✗'}</span>}
+                                  {!isSelected && isCorrectOpt && <span className="stu-opt-badge stu-opt-badge-correct">✓</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        <div className="stu-answer-footer">
+                          <span className="stu-time-taken">⏱ {formatTime(ans.time_taken_ms)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

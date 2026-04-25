@@ -6,6 +6,7 @@ router.use(authenticate);
 
 router.post('/', authorize('educator'), ctrl.createQuiz);
 router.get('/', authorize('educator'), ctrl.getMyQuizzes);
+router.post('/ai-import', authorize('educator'), ctrl.aiImport);
 router.get('/:id', ctrl.getQuiz);
 router.put('/:id', authorize('educator'), ctrl.updateQuiz);
 router.delete('/:id', authorize('educator'), ctrl.deleteQuiz);

@@ -10,6 +10,7 @@ import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
 import Dashboard from './pages/Dashboard';
 import QuizBuilder from './pages/QuizBuilder';
+import AIQuizGenerator from './pages/AIQuizGenerator';
 import HostRoom from './pages/HostRoom';
 import JoinRoom from './pages/JoinRoom';
 import Lobby from './pages/Lobby';
@@ -26,6 +27,7 @@ function AppRoutes() {
 
       <Route path="/dashboard" element={<ProtectedRoute><Navbar /><Dashboard /></ProtectedRoute>} />
 
+      <Route path="/quiz/ai-generate" element={<ProtectedRoute roles={['educator']}><Navbar /><AIQuizGenerator /></ProtectedRoute>} />
       <Route path="/quiz/:id/edit" element={<ProtectedRoute roles={['educator']}><Navbar /><QuizBuilder /></ProtectedRoute>} />
       <Route path="/quiz/:id/host" element={<ProtectedRoute roles={['educator']}><Navbar /><HostRoom /></ProtectedRoute>} />
 

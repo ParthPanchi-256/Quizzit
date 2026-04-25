@@ -24,7 +24,7 @@ export default function Register() {
     if (form.username && form.username.length < 3) errs.username = 'Min 3 characters';
     if (!form.displayName) errs.displayName = 'Required';
     if (!form.password) errs.password = 'Required';
-    if (form.password.length < 8) errs.password = 'Min 8 characters';
+    else if (form.password.length < 8) errs.password = 'Min 8 characters';
     if (form.password !== form.confirmPassword) errs.confirmPassword = 'Passwords don\'t match';
     if (Object.keys(errs).length) return setErrors(errs);
 
