@@ -22,7 +22,7 @@ export function SocketProvider({ children }) {
       return;
     }
 
-    const s = io('http://localhost:5000', {
+    const s = io(`http://${window.location.hostname}:5000`, {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 10,
