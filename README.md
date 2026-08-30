@@ -2,7 +2,7 @@
 
 ## 🎥 Demo Video
 
-[![Quizzit Demo Video]]([https://www.youtube.com/watch?v=dQw4w9WgXcQ](https://youtu.be/RgCkt_LDVR8))
+[![Quizzit Demo Video](https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg)]([https://www.youtube.com/watch?v=dQw4w9WgXcQ](https://youtu.be/RgCkt_LDVR8?si=T5uYZAtBn0ruMq1o))
 *(Click the image above to watch the demo video — replace the YouTube link and image URL with your actual video)*
 
 ---
