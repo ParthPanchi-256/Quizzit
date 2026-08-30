@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # ─── PostgreSQL Database ─────────────────────────────
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: quizzit
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # ─── Redis (For the game state migration) ────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # ─── Node.js Backend Server ──────────────────────────
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      # Override DB and Redis URLs to point to docker internal network
+      - DATABASE_URL=postgresql://postgres:admin123@db:5432/quizzit
+      - REDIS_URL=redis://redis:6379
+      - PORT=5000
+    env_file:
+      - ./server/.env
+    volumes:
+      # Mount local source code for nodemon hot-reloading
+      - ./server:/app
+      # Prevent local node_modules from overwriting container's linux modules
+      - /app/node_modules
+    depends_on:
+      - db
+      - redis
+
+  # ─── Python AI Service ───────────────────────────────
+  ai:
+    build:
+      context: ./server/ai
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - QUIZZIT_API_URL=http://server:5000/api
+    env_file:
+      - ./server/ai/.env
+    volumes:
+      # Mount local source code for uvicorn hot-reloading
+      - ./server/ai:/app
+    depends_on:
+      - server
+
+  # ─── React Client ────────────────────────────────────
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:5000/api
+    volumes:
+      # Mount local source code for vite HMR
+      - ./client:/app
+      - /app/node_modules
+    depends_on:
+      - server
+
+volumes:
+  postgres_data:

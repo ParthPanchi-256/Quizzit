@@ -2,28 +2,30 @@ const Quiz = require('../models/Quiz');
 const Room = require('../models/Room');
 const { calculateScore } = require('../utils/scoring');
 
-function setupGameHandler(io, socket, activeRooms) {
+function setupGameHandler(io, socket, store) {
   // ─── Start the quiz ───────────────────────────────────────────────
   socket.on('room:start', async ({ roomCode }) => {
     try {
-      const activeRoom = activeRooms.get(roomCode);
+      const activeRoom = await store.getRoom(roomCode);
       if (!activeRoom) return socket.emit('error', { message: 'Room not found' });
       if (activeRoom.hostId !== socket.userId) return socket.emit('error', { message: 'Only the host can start' });
       if (activeRoom.status !== 'waiting') return socket.emit('error', { message: 'Quiz already started' });
-      if (activeRoom.participants.size === 0) return socket.emit('error', { message: 'No participants in room' });
+
+      const allParticipants = await store.getAllParticipants(roomCode);
+      if (allParticipants.size === 0) return socket.emit('error', { message: 'No participants in room' });
 
       const quiz = await Quiz.findByIdWithQuestions(activeRoom.quizId);
       if (!quiz || !quiz.questions.length) return socket.emit('error', { message: 'Quiz has no questions' });
 
-      activeRoom.quiz = quiz;
-      activeRoom.status = 'starting';
-      activeRoom.currentQuestionIndex = -1;
-      activeRoom.phase = 'countdown';
-      activeRoom.questionEnding = false;
-
-      // FIX: snapshot the participant count at start time so late joiners
-      // don't inflate the count and break the "all answered" early-end logic.
-      activeRoom.activePlayerCount = activeRoom.participants.size;
+      await store.setQuiz(roomCode, quiz);
+      
+      await store.updateMeta(roomCode, {
+        status: 'starting',
+        currentQuestionIndex: -1,
+        phase: 'countdown',
+        questionEnding: false,
+        activePlayerCount: allParticipants.size,
+      });
 
       await Room.updateStatus(activeRoom.roomId, 'active');
 
@@ -32,15 +34,19 @@ function setupGameHandler(io, socket, activeRooms) {
         countdown: 3,
       });
 
-      // FIX: null-check the room inside the timeout — it may have been
-      // deleted (e.g. host disconnected) during the 3.5 s countdown.
-      activeRoom.countdownTimer = setTimeout(() => {
-        const room = activeRooms.get(roomCode);
+      const timer = setTimeout(async () => {
+        const room = await store.getRoom(roomCode);
         if (!room || room.status === 'finished') return;
-        room.status = 'active';
-        room.phase = 'question';
-        sendNextQuestion(io, roomCode, activeRooms);
+        
+        await store.updateMeta(roomCode, {
+          status: 'active',
+          phase: 'question',
+        });
+        
+        await sendNextQuestion(io, roomCode, store);
       }, 3500);
+      
+      store.setTimer(roomCode, 'countdownTimer', timer);
     } catch (err) {
       console.error('room:start error:', err);
       socket.emit('error', { message: 'Failed to start quiz' });
@@ -48,8 +54,8 @@ function setupGameHandler(io, socket, activeRooms) {
   });
 
   // ─── State recovery: client asks "where are we?" on mount ─────────
-  socket.on('game:getState', ({ roomCode }) => {
-    const activeRoom = activeRooms.get(roomCode);
+  socket.on('game:getState', async ({ roomCode }) => {
+    const activeRoom = await store.getRoom(roomCode);
     if (!activeRoom) return socket.emit('game:state', { phase: 'not_found' });
 
     if (activeRoom.status === 'waiting') {
@@ -64,15 +70,16 @@ function setupGameHandler(io, socket, activeRooms) {
       return socket.emit('game:state', { phase: 'finished' });
     }
 
-    const question = activeRoom.quiz?.questions?.[activeRoom.currentQuestionIndex];
+    const quiz = await store.getQuiz(roomCode);
+    const question = quiz?.questions?.[activeRoom.currentQuestionIndex];
 
     if (activeRoom.phase === 'leaderboard') {
-      const leaderboard = buildLeaderboard(activeRoom);
+      const leaderboard = await buildLeaderboard(store, roomCode);
       return socket.emit('game:state', {
         phase: 'leaderboard',
         leaderboard: stripUserIds(leaderboard.slice(0, 10)),
         index: activeRoom.currentQuestionIndex,
-        total: activeRoom.quiz.questions.length,
+        total: quiz.questions.length,
       });
     }
 
@@ -83,7 +90,7 @@ function setupGameHandler(io, socket, activeRooms) {
         question: sanitizeQuestion(question),
         correctOptionId: correctOption ? correctOption.id : null,
         index: activeRoom.currentQuestionIndex,
-        total: activeRoom.quiz.questions.length,
+        total: quiz.questions.length,
       });
     }
 
@@ -92,17 +99,16 @@ function setupGameHandler(io, socket, activeRooms) {
     }
 
     const elapsed = Date.now() - activeRoom.questionStartTime;
-    const timeLimit = (question.time_limit || activeRoom.quiz.time_per_question) * 1000;
+    const timeLimit = (question.time_limit || quiz.time_per_question) * 1000;
     const timeRemaining = Math.max(0, (timeLimit - elapsed) / 1000);
 
-    const answerKey = buildAnswerKey(question.id, socket.userId);
-    const existingAnswer = activeRoom.answers.get(answerKey);
+    const existingAnswer = await store.getAnswer(roomCode, question.id, socket.userId);
 
     socket.emit('game:state', {
       phase: existingAnswer ? 'answered' : 'question',
       question: sanitizeQuestion(question),
       index: activeRoom.currentQuestionIndex,
-      total: activeRoom.quiz.questions.length,
+      total: quiz.questions.length,
       timeLimit: timeLimit / 1000,
       timeRemaining,
       questionStartTime: activeRoom.questionStartTime,
@@ -119,33 +125,28 @@ function setupGameHandler(io, socket, activeRooms) {
   // ─── Submit an answer ─────────────────────────────────────────────
   socket.on('question:answer', async ({ roomCode, questionId, optionId, optionIds, textAnswer }) => {
     try {
-      const activeRoom = activeRooms.get(roomCode);
+      const activeRoom = await store.getRoom(roomCode);
       if (!activeRoom || activeRoom.status !== 'active') return;
       if (activeRoom.phase !== 'question') return;
 
-      const participant = activeRoom.participants.get(socket.userId);
+      const participant = await store.getParticipant(roomCode, socket.userId);
       if (!participant) return;
 
-      const answerKey = buildAnswerKey(questionId, socket.userId);
-
-      // ATOMIC CHECK-AND-SET: Use a per-user lock to prevent race conditions
-      // This ensures only one answer per question per user is processed
-      const lockKey = `lock:${answerKey}`;
-      if (activeRoom.answers.has(answerKey) || activeRoom.locks?.has(lockKey)) return;
-
-      // Acquire lock immediately
-      if (!activeRoom.locks) activeRoom.locks = new Map();
-      activeRoom.locks.set(lockKey, true);
+      // ATOMIC CHECK-AND-SET: Acquire Redis lock (or local equivalent)
+      const lockAcquired = await store.acquireAnswerLock(roomCode, questionId, socket.userId);
+      if (!lockAcquired) return;
 
       try {
-        // Double-check after acquiring lock (in case another request was in-flight)
-        if (activeRoom.answers.has(answerKey)) return;
+        // Double-check just in case
+        const existingAnswer = await store.getAnswer(roomCode, questionId, socket.userId);
+        if (existingAnswer) return;
 
-        const question = activeRoom.quiz.questions[activeRoom.currentQuestionIndex];
+        const quiz = await store.getQuiz(roomCode);
+        const question = quiz.questions[activeRoom.currentQuestionIndex];
         if (!question || question.id !== questionId) return;
 
         const timeElapsed = Date.now() - activeRoom.questionStartTime;
-        const timeLimit = (question.time_limit || activeRoom.quiz.time_per_question) * 1000;
+        const timeLimit = (question.time_limit || quiz.time_per_question) * 1000;
         if (timeElapsed > timeLimit + 1500) return;
 
         const qType = question.question_type || 'single';
@@ -155,17 +156,14 @@ function setupGameHandler(io, socket, activeRooms) {
         let answerText = textAnswer || null;
 
         if (qType === 'fill_blank') {
-          // Compare against all accepted answers (case-insensitive, trimmed)
           const acceptedAnswers = (question.options || []).filter(o => o.is_correct).map(o => o.option_text.trim().toLowerCase());
           const userAnswer = (textAnswer || '').trim().toLowerCase();
           isCorrect = acceptedAnswers.includes(userAnswer);
         } else if (qType === 'multiple') {
-          // Must select EXACTLY all correct options
           const correctIds = new Set(question.options.filter(o => o.is_correct).map(o => o.id));
           const selected = new Set(optionIds || []);
           isCorrect = correctIds.size === selected.size && [...correctIds].every(id => selected.has(id));
         } else {
-          // Single choice
           const selectedOption = question.options.find(o => o.id === optionId);
           isCorrect = selectedOption ? selectedOption.is_correct : false;
         }
@@ -185,7 +183,10 @@ function setupGameHandler(io, socket, activeRooms) {
         participant.totalTimeMs += timeElapsed;
         participant.answerCount++;
 
-        activeRoom.answers.set(answerKey, {
+        await store.setParticipant(roomCode, socket.userId, participant);
+        await store.updateLeaderboardScore(roomCode, socket.userId, participant.score);
+
+        await store.setAnswer(roomCode, questionId, socket.userId, {
           userId: socket.userId,
           participantId: participant.id,
           questionId,
@@ -205,7 +206,7 @@ function setupGameHandler(io, socket, activeRooms) {
           totalScore: participant.score,
         });
 
-        const questionAnswerCount = countAnswersForQuestion(activeRoom, questionId);
+        const questionAnswerCount = await store.countAnswersForQuestion(roomCode, questionId);
 
         if (activeRoom.hostSocketId) {
           io.to(activeRoom.hostSocketId).emit('question:answerCount', {
@@ -215,13 +216,12 @@ function setupGameHandler(io, socket, activeRooms) {
         }
 
         if (questionAnswerCount >= activeRoom.activePlayerCount) {
-          clearTimeout(activeRoom.questionTimer);
-          if (activeRoom.tickInterval) clearInterval(activeRoom.tickInterval);
-          endQuestion(io, roomCode, activeRooms);
+          store.clearTimer(roomCode, 'questionTimer');
+          store.clearTimer(roomCode, 'tickInterval');
+          await endQuestion(io, roomCode, store);
         }
       } finally {
-        // Always release the lock after processing
-        activeRoom.locks.delete(lockKey);
+        await store.releaseAnswerLock(roomCode, questionId, socket.userId);
       }
     } catch (err) {
       console.error('question:answer error:', err);
@@ -229,40 +229,25 @@ function setupGameHandler(io, socket, activeRooms) {
   });
 
   // ─── Host requests next question (skip ahead) ─────────────────────
-  socket.on('question:next', ({ roomCode }) => {
-    const activeRoom = activeRooms.get(roomCode);
+  socket.on('question:next', async ({ roomCode }) => {
+    const activeRoom = await store.getRoom(roomCode);
     if (!activeRoom || activeRoom.hostId !== socket.userId) return;
     if (activeRoom.phase !== 'leaderboard') return;
-    // Clear the auto-advance timer since host is manually advancing
-    if (activeRoom.leaderboardTimer) { clearTimeout(activeRoom.leaderboardTimer); activeRoom.leaderboardTimer = null; }
-    sendNextQuestion(io, roomCode, activeRooms);
+    
+    store.clearTimer(roomCode, 'leaderboardTimer');
+    await sendNextQuestion(io, roomCode, store);
   });
 
   // ─── Host ends the quiz (works from lobby OR during quiz) ─────────
   socket.on('room:end', async ({ roomCode }) => {
-    const activeRoom = activeRooms.get(roomCode);
+    const activeRoom = await store.getRoom(roomCode);
     if (!activeRoom || activeRoom.hostId !== socket.userId) return;
-    if (activeRoom.leaderboardTimer) { clearTimeout(activeRoom.leaderboardTimer); activeRoom.leaderboardTimer = null; }
-    await finishQuiz(io, roomCode, activeRooms);
+    
+    store.clearTimer(roomCode, 'leaderboardTimer');
+    await finishQuiz(io, roomCode, store);
   });
 }
 
-
-// ═══════════════════════════════════════════════════════════════════════
-// Key builder — separator "|" never appears in UUIDs
-// ═══════════════════════════════════════════════════════════════════════
-function buildAnswerKey(questionId, userId) {
-  return `${questionId}|${userId}`;
-}
-
-function countAnswersForQuestion(activeRoom, questionId) {
-  const prefix = questionId + '|';
-  let count = 0;
-  for (const key of activeRoom.answers.keys()) {
-    if (key.startsWith(prefix)) count++;
-  }
-  return count;
-}
 
 // ═══════════════════════════════════════════════════════════════════════
 // Strip correct-answer flags before broadcasting to clients
@@ -277,7 +262,6 @@ function sanitizeQuestion(question) {
     points: question.points,
   };
   if (qType === 'fill_blank') {
-    // Don't send accepted answers to client — they type their own
     base.options = [];
     base.acceptedCount = (question.options || []).filter(o => o.is_correct).length;
   } else {
@@ -291,21 +275,29 @@ function sanitizeQuestion(question) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Build leaderboard — FIX: include userId so downstream lookups are
-// keyed by identity, not by display name (which is not unique).
+// Build leaderboard using the store
 // ═══════════════════════════════════════════════════════════════════════
-function buildLeaderboard(activeRoom) {
-  return Array.from(activeRoom.participants.entries())
-    .sort(([, a], [, b]) => b.score - a.score)
-    .map(([userId, p], i) => ({
-      rank: i + 1,
-      userId,            // internal — strip before sending to all clients
-      displayName: p.displayName,
-      avatarColor: p.avatarColor,
-      score: p.score,
-      streak: p.streak,
-      socketId: p.socketId, // internal — used for personal emit
-    }));
+async function buildLeaderboard(store, roomCode) {
+  const sortedUserIds = await store.getLeaderboard(roomCode); // already sorted desc
+  const allParticipants = await store.getAllParticipants(roomCode);
+  
+  const leaderboard = [];
+  for (let i = 0; i < sortedUserIds.length; i++) {
+    const userId = sortedUserIds[i];
+    const p = allParticipants.get(userId);
+    if (p) {
+      leaderboard.push({
+        rank: i + 1,
+        userId,            // internal
+        displayName: p.displayName,
+        avatarColor: p.avatarColor,
+        score: p.score,
+        streak: p.streak,
+        socketId: p.socketId, // internal
+      });
+    }
+  }
+  return leaderboard;
 }
 
 // Remove server-only fields before broadcasting
@@ -316,75 +308,81 @@ function stripUserIds(entries) {
 // ═══════════════════════════════════════════════════════════════════════
 // Send the next question to all clients
 // ═══════════════════════════════════════════════════════════════════════
-async function sendNextQuestion(io, roomCode, activeRooms) {
-  const activeRoom = activeRooms.get(roomCode);
+async function sendNextQuestion(io, roomCode, store) {
+  const activeRoom = await store.getRoom(roomCode);
   if (!activeRoom) return;
 
-  if (activeRoom.tickInterval) clearInterval(activeRoom.tickInterval);
+  store.clearTimer(roomCode, 'tickInterval');
+  
+  const quiz = await store.getQuiz(roomCode);
+  const nextIndex = activeRoom.currentQuestionIndex + 1;
 
-  activeRoom.currentQuestionIndex++;
-  activeRoom.phase = 'question';
-  activeRoom.questionEnding = false;
-
-  if (activeRoom.currentQuestionIndex >= activeRoom.quiz.questions.length) {
-    await finishQuiz(io, roomCode, activeRooms);
+  if (nextIndex >= quiz.questions.length) {
+    await finishQuiz(io, roomCode, store);
     return;
   }
 
-  const question = activeRoom.quiz.questions[activeRoom.currentQuestionIndex];
-  const timeLimit = (question.time_limit || activeRoom.quiz.time_per_question) * 1000;
+  const question = quiz.questions[nextIndex];
+  const timeLimit = (question.time_limit || quiz.time_per_question) * 1000;
+  
+  const questionStartTime = Date.now();
+  const questionEndTime = questionStartTime + timeLimit;
 
-  activeRoom.questionStartTime = Date.now();
-  activeRoom.questionEndTime = activeRoom.questionStartTime + timeLimit;
+  await store.updateMeta(roomCode, {
+    currentQuestionIndex: nextIndex,
+    phase: 'question',
+    questionEnding: false,
+    questionStartTime,
+    questionEndTime,
+  });
 
   io.to(roomCode).emit('question:show', {
     question: sanitizeQuestion(question),
-    index: activeRoom.currentQuestionIndex,
-    total: activeRoom.quiz.questions.length,
+    index: nextIndex,
+    total: quiz.questions.length,
     timeLimit: timeLimit / 1000,
-    questionStartTime: activeRoom.questionStartTime,
+    questionStartTime,
   });
 
-  // Server-driven time sync every 5 s so clients stay accurate
-  activeRoom.tickInterval = setInterval(() => {
-    const remaining = Math.max(0, (activeRoom.questionEndTime - Date.now()) / 1000);
+  const tickInterval = setInterval(async () => {
+    // Re-fetch to ensure room hasn't finished
+    const r = await store.getRoom(roomCode);
+    if (!r) return store.clearTimer(roomCode, 'tickInterval');
+    
+    const remaining = Math.max(0, (r.questionEndTime - Date.now()) / 1000);
     io.to(roomCode).emit('room:tickSync', {
       timeRemaining: remaining,
-      questionIndex: activeRoom.currentQuestionIndex,
+      questionIndex: nextIndex,
     });
-    if (remaining <= 0) clearInterval(activeRoom.tickInterval);
+    if (remaining <= 0) store.clearTimer(roomCode, 'tickInterval');
   }, 5000);
+  store.setTimer(roomCode, 'tickInterval', tickInterval);
 
-  activeRoom.questionTimer = setTimeout(() => {
-    if (activeRoom.tickInterval) clearInterval(activeRoom.tickInterval);
-    endQuestion(io, roomCode, activeRooms);
+  const questionTimer = setTimeout(async () => {
+    store.clearTimer(roomCode, 'tickInterval');
+    await endQuestion(io, roomCode, store);
   }, timeLimit);
+  store.setTimer(roomCode, 'questionTimer', questionTimer);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 // End the current question — reveal answer + show leaderboard
 // ═══════════════════════════════════════════════════════════════════════
-function endQuestion(io, roomCode, activeRooms) {
-  const activeRoom = activeRooms.get(roomCode);
+async function endQuestion(io, roomCode, store) {
+  const activeRoom = await store.getRoom(roomCode);
   if (!activeRoom) return;
 
-  // Guard against double-execution (timer fires + all-answered race)
+  // Guard against double-execution
   if (activeRoom.questionEnding) return;
-  activeRoom.questionEnding = true;
+  await store.updateMeta(roomCode, { questionEnding: true, phase: 'reveal' });
 
-  activeRoom.phase = 'reveal';
-
-  const question = activeRoom.quiz.questions[activeRoom.currentQuestionIndex];
+  const quiz = await store.getQuiz(roomCode);
+  const question = quiz.questions[activeRoom.currentQuestionIndex];
   if (!question) return;
 
   const correctOption = question.options.find(o => o.is_correct);
 
-  // Gather this question's answers using the safe prefix scan
-  const questionAnswers = [];
-  const prefix = question.id + '|';
-  for (const [key, val] of activeRoom.answers) {
-    if (key.startsWith(prefix)) questionAnswers.push(val);
-  }
+  const questionAnswers = await store.getAnswersForQuestion(roomCode, question.id);
 
   const optionCounts = {};
   question.options.forEach(o => { optionCounts[o.id] = 0; });
@@ -398,15 +396,12 @@ function endQuestion(io, roomCode, activeRooms) {
   const totalAnswered = questionAnswers.length;
 
   const qType = question.question_type || 'single';
-
-  // Build reveal payload based on question type
   const revealData = {
     questionType: qType,
-    stats: { optionCounts, correctCount, totalAnswered, totalPlayers: activeRoom.participants.size },
+    stats: { optionCounts, correctCount, totalAnswered, totalPlayers: activeRoom.activePlayerCount },
   };
 
   if (qType === 'fill_blank') {
-    // Send all accepted answers so clients can display them
     revealData.acceptedAnswers = question.options.filter(o => o.is_correct).map(o => o.option_text);
     revealData.correctOptionId = null;
     revealData.correctOptionIds = null;
@@ -420,8 +415,9 @@ function endQuestion(io, roomCode, activeRooms) {
 
   io.to(roomCode).emit('question:timeUp', revealData);
 
-  // Now reveal each student's personal answer result
-  for (const [userId, participant] of activeRoom.participants) {
+  const allParticipants = await store.getAllParticipants(roomCode);
+
+  for (const [userId, participant] of allParticipants) {
     if (!participant.socketId) continue;
     const answer = questionAnswers.find(a => a.userId === userId);
     if (answer) {
@@ -437,74 +433,74 @@ function endQuestion(io, roomCode, activeRooms) {
     }
   }
 
-  // FIX: build leaderboard with userId included so every lookup is by
-  // identity, not by display name (display names are not unique).
-  const leaderboard = buildLeaderboard(activeRoom);
+  const leaderboard = await buildLeaderboard(store, roomCode);
 
   leaderboard.forEach(entry => {
-    // Direct O(1) lookup by userId — no displayName comparison needed
     const answer = questionAnswers.find(a => a.userId === entry.userId);
     entry.isCorrect = answer ? answer.isCorrect : false;
   });
 
-  setTimeout(() => {
-    const room = activeRooms.get(roomCode);
+  setTimeout(async () => {
+    const room = await store.getRoom(roomCode);
     if (!room || room.status === 'finished') return;
 
-    room.phase = 'leaderboard';
+    await store.updateMeta(roomCode, { phase: 'leaderboard' });
 
-    // Broadcast — strip internal fields before sending to all clients
     io.to(roomCode).emit('question:results', {
       leaderboard: stripUserIds(leaderboard.slice(0, 10)),
     });
 
-    // Send personal rank keyed by userId
     leaderboard.forEach(entry => {
       if (entry.socketId) {
         io.to(entry.socketId).emit('question:personalResult', {
           rank: entry.rank,
-          totalScore: room.participants.get(entry.userId)?.score ?? 0,
+          totalScore: allParticipants.get(entry.userId)?.score ?? 0,
           totalPlayers: leaderboard.length,
           isCorrect: entry.isCorrect,
         });
       }
     });
 
-    // ── Auto-advance after 5 seconds on leaderboard ──
-    room.leaderboardTimer = setTimeout(() => {
-      const r = activeRooms.get(roomCode);
+    const leaderboardTimer = setTimeout(async () => {
+      const r = await store.getRoom(roomCode);
       if (!r || r.status === 'finished' || r.phase !== 'leaderboard') return;
-      sendNextQuestion(io, roomCode, activeRooms);
+      await sendNextQuestion(io, roomCode, store);
     }, 5000);
+    store.setTimer(roomCode, 'leaderboardTimer', leaderboardTimer);
   }, 2000);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 // Finish the entire quiz — persist scores and broadcast results
 // ═══════════════════════════════════════════════════════════════════════
-async function finishQuiz(io, roomCode, activeRooms) {
-  const activeRoom = activeRooms.get(roomCode);
+async function finishQuiz(io, roomCode, store) {
+  const activeRoom = await store.getRoom(roomCode);
   if (!activeRoom) return;
   if (activeRoom.status === 'finished') return;
 
-  if (activeRoom.questionTimer)    clearTimeout(activeRoom.questionTimer);
-  if (activeRoom.tickInterval)     clearInterval(activeRoom.tickInterval);
-  if (activeRoom.countdownTimer)   clearTimeout(activeRoom.countdownTimer);
-  if (activeRoom.leaderboardTimer) clearTimeout(activeRoom.leaderboardTimer);
+  store.clearTimer(roomCode, 'questionTimer');
+  store.clearTimer(roomCode, 'tickInterval');
+  store.clearTimer(roomCode, 'countdownTimer');
+  store.clearTimer(roomCode, 'leaderboardTimer');
 
-  activeRoom.status = 'finished';
-  activeRoom.phase = 'finished';
+  await store.updateMeta(roomCode, { status: 'finished', phase: 'finished' });
+
+  const allParticipants = await store.getAllParticipants(roomCode);
+  const quiz = await store.getQuiz(roomCode);
 
   try {
-    // Only persist scores if the quiz actually ran (has answers/participants)
-    if (activeRoom.quiz && activeRoom.participants.size > 0) {
+    if (quiz && allParticipants.size > 0) {
+      // Reconstruct answersByUser
       const answersByUser = new Map();
-      for (const answer of activeRoom.answers.values()) {
+      const questionAnswersPromises = quiz.questions.map(q => store.getAnswersForQuestion(roomCode, q.id));
+      const allAnswersGroups = await Promise.all(questionAnswersPromises);
+      
+      allAnswersGroups.flat().forEach(answer => {
         if (!answersByUser.has(answer.userId)) answersByUser.set(answer.userId, []);
         answersByUser.get(answer.userId).push(answer);
-      }
+      });
 
-      for (const [userId, p] of activeRoom.participants) {
+      for (const [userId, p] of allParticipants) {
         const avgTime = p.answerCount > 0 ? Math.round(p.totalTimeMs / p.answerCount) : 0;
 
         await Room.updateParticipantScore(p.id, {
@@ -539,7 +535,7 @@ async function finishQuiz(io, roomCode, activeRooms) {
     console.error('Failed to persist results:', err);
   }
 
-  const finalLeaderboard = Array.from(activeRoom.participants.values())
+  const finalLeaderboard = Array.from(allParticipants.values())
     .sort((a, b) => b.score - a.score)
     .map((p, i) => ({
       rank: i + 1,
@@ -553,10 +549,13 @@ async function finishQuiz(io, roomCode, activeRooms) {
   io.to(roomCode).emit('room:finished', {
     finalLeaderboard,
     topThree: finalLeaderboard.slice(0, 3),
-    totalQuestions: activeRoom.quiz?.questions?.length || 0,
+    totalQuestions: quiz?.questions?.length || 0,
   });
 
-  setTimeout(() => activeRooms.delete(roomCode), 60_000);
+  const cleanupTimer = setTimeout(async () => {
+    await store.deleteRoom(roomCode);
+  }, 60_000);
+  store.setTimer(roomCode, 'cleanupTimer', cleanupTimer);
 }
 
 module.exports = { setupGameHandler };
